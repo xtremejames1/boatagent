@@ -21,7 +21,18 @@
   "thr_force_kgf": 5.25,
   "thr_rev_force_kgf": 4.1,
   "front_thr_angle_deg": 45.0,
-  "shroud_gap": 0.005,
+  "pod_gap": 0.005,
+  "pod_window_ratio": 1.0,
+  "pod_window_max_frac": 0.7,
+  "pod_window_cd": 0.2,
+  "pod_crush_fill": 0.15,
+  "pod_crush_len_min": 0.03,
+  "pod_bed": [
+    0.25,
+    0.25,
+    0.25
+  ],
+  "impact_speed": 2.0,
   "rear_strut_chord": 0.08,
   "rear_strut_tc": 0.2,
   "mount_fixed_kg": 0.06,
@@ -36,9 +47,9 @@
   "skid_fill": 0.6,
   "mass_calibration": 1.0,
   "bed": [
-    0.256,
-    0.256,
-    0.256
+    0.25,
+    0.25,
+    0.25
   ],
   "joint_kg_per_m": 0.04,
   "loa_max": 1.52,

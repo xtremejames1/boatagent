@@ -36,19 +36,22 @@ For each design (about 0.1 s each):
    of enclosed volume) + sealer + joint flanges. The print-bed split sets the
    joint count. `mass_calibration` scales the printed part. Set it from a weighed
    test print with the `calibrate` command. Frame mass grows with overall width.
-   The payload, LIDAR mast, thrusters, shrouds, struts and skids all have positions,
+   The payload, LIDAR mast, thrusters, pods, mounts and skids all have positions,
    so the code gets a real KG and LCG.
-3. **Thrusters, shrouds and skids, placed against the design waterline.**
+3. **Thrusters, pods and skids, placed against the design waterline.**
    - Each thruster hangs a set water cover (an optimizer variable) below the
      waterline.
    - Front thrusters sit one ahead of each hull's bow, on the hull centreline,
-     `front_thr_gap` clear of the stem. They are angled 45° inside an impact shroud.
-   - Rear thrusters point fore-aft and are unshrouded. They sit wholly in the gap
+     `front_thr_gap` clear of the stem. Each is angled 45° inside a faired pod
+     aligned with the flow. The pod has an elliptical section, side windows so the
+     thruster can draw water sideways, and a crushable nose for head-on hits. It
+     covers the thruster mount and must print in one piece on a 250 mm bed.
+   - Rear thrusters point fore-aft and have no pod. They sit wholly in the gap
      between the hulls, as far outboard as clearance allows.
    - Every thruster sits on a 3D-printed mount: a faired strut down from deck
      level plus a clamp. The front mounts add an arm forward from the stem. Mount
      mass is counted.
-   - The skid bottom is set `skid_margin` below the lowest thruster or shroud point.
+   - The skid bottom is set `skid_margin` below the lowest thruster or pod point.
    - Placement runs twice, so the waterline includes the appendage masses.
 4. **Trim and float.**
    - The movable payload (batteries, electronics) slides within its deck range to
@@ -56,7 +59,8 @@ For each design (about 0.1 s each):
    - The code then solves free heave and trim with mesh hydrostatics: exact surface
      integrals on the clipped mesh, waterplane by Green's theorem.
 5. **Checks** (constraint ≤ 0 means pass):
-   - overall length (hull + front shrouds ≤ 1.52 m) and overall width
+   - overall length (hull + front pods ≤ 1.52 m) and overall width
+   - front pod: one-piece fit on the 250 mm bed, crush-nose length, window area
    - inner-face spacing
    - GM_T and freeboard
    - trim
@@ -102,7 +106,7 @@ speed:
 |---|---|
 | wave | Michell thin-ship integral with demihull interference, `2[1 + cos(k0 λ√(λ²−1) s)]`. Exact per-panel integration of the hull offsets at the floating waterline (`hullopt/michell.py`). Scaled by `wave_factor` (1.0 until stage 3 calibrates it). |
 | viscous | ITTC-57 × catamaran form factor `1+βk = 3.03 (L/∇^⅓)^−0.4` (Couser et al. 1997) + roughness ΔCf |
-| appendages | struts (foil friction, Hoerner thickness factor), shroud rings, skids, thruster-pod pressure drag (`pod_cd_front` 0.6 at 45°, `pod_cd_rear` 0.3) |
+| appendages | struts and pylons (foil friction, Hoerner thickness factor), skids, front pods (Hoerner streamlined-body drag + side-window drag `pod_window_cd` 0.2), bare rear thrusters (`pod_cd_rear` 0.3) |
 | transom | Holtrop (1984) wet-transom term |
 
 It also computes:
@@ -138,30 +142,41 @@ catamaran. Use it as the reference when validating the stage 3 CFD setup.
   values: 2.14e-3 at Fr 0.3 and 4.52e-3 at Fr 0.5. Michell theory overpredicts
   the measured hump at Fr 0.5 by about 2×, which is a known limitation.
 
-### What stage 2 shows (front thrusters ahead of the bows)
+### What stage 2 shows (faired front pods)
 
-- **The front shrouds use up hull length.** A 45° shrouded T200 takes about 18 cm
-  ahead of the bow. With 1.52 m overall, hulls top out near 1.32 m (was 1.50 m
-  with the thrusters beside the bows). Slenderness drops from about 6.3 to 5.6,
-  and the best weighted hull resistance rises from 3.5 N to 4.3 N.
-- **Appendages still dominate.** About 17 of the 21 N weighted resistance at
-  0.5–1.5 m/s comes from the mounts, shrouds, pods and skids, mostly the 45°
-  front pods. The pod Cd values are rough estimates, so stage 3 should measure
-  them.
-- **Finalists span a real tradeoff.** The 1.3 m hulls have the least drag
-  (21.3–21.6 N weighted). The 1.0–1.1 m hulls are about 1 kg lighter, sway
-  faster (0.72–0.76 m/s against 0.65–0.71 m/s) and turn faster, but carry about
-  10 % more drag. Their wave hump also starts at about 1.1 m/s, inside the
-  priority band.
-- **Rear jets pass close to the front shrouds.** On finalist 1 the forward jet
-  of each rear thruster passes about 1 cm from the front shroud. This is
-  reported (`jet_rear_to_front_thr`) but doesn't fail a design; check it in CFD.
+- **The faired pod cuts drag by about a third.** The best weighted resistance at
+  0.5–1.5 m/s fell from 21.3 N (open tube at 45°) to 14.0 N. Appendages fell from
+  about 17 N to about 9.5 N. Thrust margin at 2 m/s rose from 2.2× to 3.4×.
+- **What's left of the appendage drag**, at 1 m/s:
+
+  | source | drag |
+  |---|---|
+  | pod side windows | ≈3 N |
+  | bare rear thrusters | ≈3 N |
+  | pod bodies | ≈1.8 N |
+  | skids | ≈1.1 N |
+
+  The window and rear-thruster numbers rest on guessed drag coefficients, so stage
+  3 should measure them.
+- **The pod uses more length.** Each pod is about 21 × 16 × 11 cm and about
+  0.17 kg, and fits the 250 mm bed (84 % of the bed's length). Hulls now top
+  out near 1.27 m, with slenderness about 5.4.
+- **Head-on impact.** Stopping the boat from 2 m/s means absorbing about 52 J.
+  A 4 cm crush nose would need about 1.3 kN of average crush force. The pod wall
+  goes to the 1.6 mm minimum because nothing models impact strength yet. Set
+  `pod_wall` and `pod_crush_len_min` from test prints.
+- **The rear jets graze the front pods.** The forward jet of each rear thruster
+  overlaps the front pod's outline by about 3 cm (`jet_rear_to_front_thr` < 0).
+  This is reported but doesn't fail a design; check it in CFD.
+- **Finalists:** five 1.24–1.27 m hulls with the least drag (14.0–14.4 N), and
+  three 1.0 m hulls that are about 0.6 kg lighter and turn faster but carry about
+  13 % more drag.
 
 ## Coordinates and units
 
 SI throughout. Body frame: x forward from the transom, y to port, z up, z = 0
 at the lowest keel point. Front thruster axes point forward-outboard at 45°.
-`loa` is the hull length only; the front shrouds sit ahead of it.
+`loa` is the hull length only; the front pods sit ahead of it.
 
 ## Placeholders to confirm
 
@@ -174,7 +189,9 @@ JSON passed with `--config`:
 | `freeboard_min` (Y in the brief) | 0.08 m | |
 | `width_max` | 0.914 m (3 ft) | check against current RoboBoat rules |
 | `skid_max_height` | 0.12 m | **the main design driver**, see below |
-| `thr_cover_min` | 0.05 m | water above thruster or shroud top; verify ventilation in CFD |
+| `thr_cover_min` | 0.05 m | water above the rear thruster / front pod top; verify ventilation in CFD |
+| `pod_window_ratio`, `pod_window_cd` | 1.0, 0.2 | side-window area per side ÷ thruster disk area; window drag |
+| `pod_crush_len_min`, `impact_speed` | 3 cm, 2 m/s | crush nose |
 | `lidar_z_above_deck`, `lidar_kg` | 0.60 m, 1.0 kg | sets KG |
 | `frame_*`, `payload_z_above_deck` | | mass and KG of the frame and electronics |
 | `wall_thickness`, `rib_vol_frac`, `mass_calibration` | 1.6 mm, 1.2 %, 1.0 | calibrate with a test print |
@@ -183,12 +200,12 @@ JSON passed with `--config`:
 
 ## What the first run shows
 
-A shrouded T200 with 5 cm of water above it reaches about 19 cm below the
+A T200 in a pod with 5 cm of water above it reaches about 17 cm below the
 waterline. A 25–30 kg catamaran with slender hulls draws only about 8–11 cm.
 So the skid must be about 8–12 cm tall. With an 8 cm cap almost no slender design
 was feasible. With 12 cm, many are. The skid's mass, wetted area and lateral area
 count against every design, so the optimizer still keeps the skid small.
-Shallower thruster cover, a thinner shroud, or a deeper hull all relax this.
+Shallower thruster cover, a slimmer pod, or a deeper hull all relax this.
 
 ## Layout
 
@@ -197,7 +214,7 @@ hullopt/params.py        design variables, bounds, fixed config
 hullopt/geometry.py      demihull/catamaran mesh, half-breadth lookup, STL writer
 hullopt/hydrostatics.py  clipped-mesh hydrostatics, equilibrium, GZ
 hullopt/mass.py          printed mass, print-bed segmentation, mass budget
-hullopt/layout.py        thrusters, shrouds, struts, skids, clearance and jet checks
+hullopt/layout.py        thrusters, front pods, mounts, skids, clearance and jet checks
 hullopt/stage1.py        evaluation, NSGA-II driver, candidate selection, CLI
 hullopt/michell.py       Michell wave resistance (mono / catamaran), Wigley offsets
 hullopt/stage2.py        resistance build-up, sway, yaw, finalist selection, CLI

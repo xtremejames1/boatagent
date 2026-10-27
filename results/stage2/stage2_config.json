@@ -7,7 +7,6 @@
   "score_max_speed": 1.5,
   "top_speed": 2.0,
   "skid_form_k": 0.3,
-  "pod_cd_front": 0.6,
   "pod_cd_rear": 0.3,
   "cd_sharp": 1.2,
   "cd_round": 0.7,
