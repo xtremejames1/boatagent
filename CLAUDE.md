@@ -7,10 +7,14 @@ pipeline for a small holonomic autonomous catamaran (RoboBoat-scale).
 
 - **Configuration:** catamaran, holonomic.
 - **Thrusters:** 4 × Blue Robotics T200 (assume for now), all on 3D-printed mounts.
-  - Front pair: one in front of each hull's bow, angled ~45°, inside a shroud that
-    protects it from impacts and must be reasonably hydrodynamic.
-  - Rear pair: between the hulls, unshrouded. Only the front pair has shrouds.
-  - Overall length ≤ 1.52 m includes the front shrouds (confirmed; hull `loa` is
+  - Front pair: one in front of each hull's bow, angled ~45°, inside a faired pod
+    that goes in front (aligned with the flow). The pod must survive a head-on hit,
+    or absorb it and break off; it has side openings so the thruster can draw
+    water from the side; it fits over the thruster mount and thruster and attaches
+    at the same hull interface point as the mount; it prints in one piece on a
+    standard 250 x 250 mm bed.
+  - Rear pair: between the hulls, no pod. Only the front pair has pods.
+  - Overall length ≤ 1.52 m includes the front pods (confirmed; hull `loa` is
     shorter).
 - **Grounding:** the boat must rest on the hulls, not the thrusters. Achieved with a
   **separate, replaceable 3D-printed skid/rail** on each hull bottom that sits
@@ -52,7 +56,7 @@ pipeline for a small holonomic autonomous catamaran (RoboBoat-scale).
 | Demihull | length, beam, draft, section shape (bilge radius/deadrise), rocker, bow entry angle, transom width |
 | Layout | hull spacing (inner-face, ≥10 in), fore-aft thruster positions |
 | Skid | depth below lowest thruster (small margin, ~1–2 cm), length, fore-aft position. Low rounded rail, not a fin. |
-| Shroud | depth, fairing chord/thickness. Fairing alignment tested as 2–3 discrete cases at stage 3 only (e.g. aligned with thruster axis vs. one intermediate). |
+| Front pod | depth (cover), wall, crush-nose length, tail length, pylon chord/thickness. Window size and shape, and the pylon alignment, tested as discrete cases at stage 3. |
 
 Hard constraints: skid bottom below lowest thruster, displacement ≥ mass, GM_T ≥ X,
 freeboard ≥ Y, LOA ≤ 1.52 m, overall width limit, thrusters submerged enough to
@@ -69,8 +73,8 @@ avoid ventilation.
    sealed surface, Re ~3e6); crossflow-drag estimate for sway; empirical yaw proxy.
    Score on the weighted 0.5–1.5 m/s objective.
 3. **Stage 3 — OpenFOAM interFoam (5–10 finalists):** free sinkage/trim, surge and
-   sway cases, actuator-disk thrusters for interaction and ventilation, shroud
-   fairing cases. Validate setup first on a Wigley catamaran benchmark; do a mesh
+   sway cases, actuator-disk thrusters for interaction and ventilation, front
+   pod window/pylon cases. Validate setup first on a Wigley catamaran benchmark; do a mesh
    independence study.
 
 Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
@@ -97,15 +101,20 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
   front shrouds ahead of the bows, hulls top out near 1.32 m (slenderness ~5.6);
   1.3 m hulls have the least drag, 1.0–1.1 m hulls are lighter and more agile.
 - Mount layout (front ahead of bows, rear between hulls) is set; mount details will
-  still change. Keep thruster/shroud/mount geometry parametric (`hullopt/layout.py`).
+  still change. Keep thruster/pod/mount geometry parametric (`hullopt/layout.py`).
 
-- Shroud model is a placeholder: open straight tube on the thruster axis (5 mm gap,
-  wall = `shroud_guard`, length = T200 + 1 cm) on a faired strut, drag from a pod Cd
-  guess. Duct section, lips and grille are not modelled yet.
+- Front pod model (`Pod` in `hullopt/layout.py`): elliptical section aligned with +x,
+  sized around the 45° T200 (+5 mm gap + wall); tail fairing, thruster bay with side
+  windows (area per side = `pod_window_ratio` x thruster disk), crushable nose
+  (`pod_nose_len`, infill `pod_crush_fill`). Flooded. Drag: Hoerner streamlined-body
+  formula + window drag (`pod_window_cd`, placeholder). Constraints: one-piece fit on
+  `pod_bed`, nose ≥ `pod_crush_len_min`, windows ≤ `pod_window_max_frac` of bay side.
+  Reports impact energy at `impact_speed` and average crush force over the nose.
 
 ## Next step
 
 Stage 3: OpenFOAM interFoam. Validate on a Wigley catamaran first (reference Michell
 values from `python -m hullopt.stage2 wigley`), mesh independence study, then the
 finalists: free sinkage/trim surge cases, sway cases, actuator-disk thrusters,
-shroud fairing cases. Use CFD to calibrate `wave_factor` and pod Cd values.
+pod window/pylon cases. Use CFD to calibrate `wave_factor`, `pod_window_cd` and the
+rear-thruster Cd.

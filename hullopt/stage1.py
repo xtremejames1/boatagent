@@ -4,7 +4,7 @@ For each design:
   1. build the demihull and catamaran meshes;
   2. compute printed hull mass and the mass budget;
   3. float the boat level to get the design waterline, then place thrusters,
-     shrouds, struts and skids relative to it;
+     pods, struts and skids relative to it;
   4. move the movable payload to trim the boat level (within its deck range);
   5. solve free heave + trim and compute hydrostatics (GM_T, GM_L, freeboard...);
   6. run clearance, submergence, jet, skid and size checks;
@@ -28,7 +28,7 @@ import math
 import os
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -48,10 +48,10 @@ from .layout import (
     make_skid,
     pair_gap,
     mount_mass,
+    Pod,
     place_front,
     place_rear,
     point_to_ray,
-    shroud_ring,
 )
 from .mass import MassBudget, demihull_mass
 from .params import BOUNDS, Config, Design
@@ -59,6 +59,7 @@ from .params import BOUNDS, Config, Design
 CONSTRAINTS = [
     "c_loa", "c_width", "c_spacing", "c_gm_t", "c_freeboard", "c_trim", "c_heel_sway",
     "c_thr_cover", "c_clearance", "c_jet", "c_skid_height", "c_skid_lcg", "c_reserve",
+    "c_pod_print", "c_pod_crush", "c_pod_window",
 ]
 OBJECTIVES = [("obj_mass", "min"), ("obj_drag", "min"), ("obj_slenderness", "max")]
 FAIL = 10.0
@@ -80,7 +81,7 @@ class Detail:
     budget: MassBudget
     struts: list
     z_wl: float           # body z of the design waterline (level float)
-    ring_wet: float       # wetted area of one front shroud ring
+    pods: list            # front pods (port, starboard)
 
 
 def _failed(d: Design, reason: str) -> dict:
@@ -116,14 +117,15 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
 
     fixed = list(bud.items)
     psi = math.radians(cfg.front_thr_angle_deg)
-    r_sh = cfg.thr_radius + cfg.shroud_gap + d.shroud_guard
-    l_sh = cfg.thr_length + 0.01
-    ring_m, ring_v, ring_wet = shroud_ring(cfg, d)
+    pod_half_h = cfg.thr_radius + cfg.pod_gap + d.pod_wall
 
     def mirror(t: Thruster, name: str) -> Thruster:
         c = t.centre.copy()
         c[1] = -c[1]
         return Thruster(name, c, -t.heading, t.radius, t.length)
+
+    def mirror_pod(p: Pod) -> Pod:
+        return replace(p, name="front_stbd", y=-p.y)
 
     # Thrusters hang a set cover below the design waterline, but the waterline
     # depends on the appendage masses. Pass 1 uses an estimate; pass 2 the result.
@@ -134,21 +136,23 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
             return (_failed(d, "sinks"), None) if detail else _failed(d, "sinks")
         bud = MassBudget(list(fixed))
 
-        # ---- thrusters (front: shrouded, ahead of the bows; rear: between the hulls)
-        fz = z_wl - d.front_thr_cover - r_sh
+        # ---- thrusters (front: in pods ahead of the bows; rear: between the hulls)
+        fz = z_wl - d.front_thr_cover - pod_half_h
         rz = z_wl - d.rear_thr_cover - cfg.thr_radius
-        fp = place_front(d, fz, psi, r_sh, l_sh)
+        fp, pp = place_front(d, cfg, fz, psi)
+        pods = [pp, mirror_pod(pp)]
         rp = place_rear(d, d.rear_thr_x_frac * L, rz, cfg.thr_radius, cfg.thr_length, cfg.clearance_min)
         fs, rs = mirror(fp, "front_stbd"), mirror(rp, "rear_stbd")
         thrusters = [fp, fs, rp, rs]
 
         struts = []
-        for t, chord, tc in [(fp, d.shroud_chord, d.shroud_tc), (fs, d.shroud_chord, d.shroud_tc),
-                             (rp, cfg.rear_strut_chord, cfg.rear_strut_tc),
-                             (rs, cfg.rear_strut_chord, cfg.rear_strut_tc)]:
-            struts.append(Strut(t.name, t.centre[0], t.centre[1], deck, t.top_z, chord, tc))
+        for t, top, chord, tc in [(fp, pp.top_z, d.pylon_chord, d.pylon_tc),
+                                  (fs, pp.top_z, d.pylon_chord, d.pylon_tc),
+                                  (rp, rp.top_z, cfg.rear_strut_chord, cfg.rear_strut_tc),
+                                  (rs, rs.top_z, cfg.rear_strut_chord, cfg.rear_strut_tc)]:
+            struts.append(Strut(t.name, t.centre[0], t.centre[1], deck, top, chord, tc))
 
-        lowest = min(t.lowest_z for t in thrusters)
+        lowest = min(b.lowest_z for b in pods + [rp, rs])
         skid = make_skid(d, cfg, lowest)
         skid_mass = skid.volume * cfg.fil_density * cfg.skid_fill * cfg.mass_calibration
 
@@ -156,9 +160,9 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         for t in thrusters:
             bud.add("thrusters", cfg.thr_mass, t.centre)
             app.add(cfg.thr_volume, t.centre)
-        for t in (fp, fs):
-            bud.add("shrouds", ring_m, t.centre)
-            app.add(ring_v, t.centre)
+        for p_ in pods:
+            bud.add("pods", p_.mass(cfg), p_.centre)
+            app.add(p_.material_volume(cfg), p_.centre)
         for s_ in struts:
             arm = max(s_.x - L, 0.0) if s_.name.startswith("front") else 0.0
             bud.add("mounts", mount_mass(s_, arm, cfg), s_.cg)
@@ -221,7 +225,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         a = s.wetted_area(z_wl)
         if a > 0:
             app_wet.append((a, s.chord))
-    app_wet += [(ring_wet, l_sh)] * 2 + [(skid.wetted_area, skid.length)] * 2
+    app_wet += [(p_.outer_area, p_.length) for p_ in pods] + [(skid.wetted_area, skid.length)] * 2
     k = cfg.form_factor_k
     r_f = []
     for v in cfg.surge_speeds:
@@ -235,7 +239,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
 
     a_lat = hy.lateral_area + 2 * float(np.trapezoid(skid.heights, skid.xs))
     a_lat += sum(s.submerged_length(z_wl) * s.chord for s in struts)
-    a_lat += 2 * (2 * r_sh * l_sh)
+    a_lat += sum(p_.length * 2 * p_.half_h for p_ in pods)
     sway_drag = 0.5 * rho * cfg.sway_speed ** 2 * cfg.sway_cd * a_lat
     f_sway = 2 * cfg.thr_force_kgf * g * math.sin(psi)
     v_sway_max = math.sqrt(2 * f_sway / (rho * cfg.sway_cd * a_lat))
@@ -247,14 +251,16 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
     clr_offset = (hy.lateral_centroid[0] - Ge[0]) / lwl  # + means lateral area forward of G
 
     # ---- checks
+    bodies = pods + [rp, rs]   # outer envelopes in the water
     covers = []
-    for t in thrusters:
-        top = pose.to_earth((t.centre + [0, 0, t.radius])[None])[0, 2]
+    for b in bodies:
+        top = pose.to_earth(np.array([[b.centre[0], b.centre[1], b.top_z]]))[0, 2]
         covers.append(-top)
     cover = float(min(covers))
-    gaps = [hull_gap(t.envelope_points(), d) for t in thrusters]
+    gaps = [hull_gap(b.envelope_points(), d) for b in bodies]
     hull_clear = float(min(gaps))
-    pair_f, pair_r = pair_gap(fp), pair_gap(rp)
+    pair_f = 2 * (pp.y - pp.half_w)
+    pair_r = pair_gap(rp)
     clearance = min(hull_clear, pair_f, pair_r, d.front_thr_gap)
 
     jr = cfg.thr_radius
@@ -264,15 +270,20 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
     start = fp.centre - fp.axis * fp.length / 2
     fjet_to_rear = min(point_to_ray(t.centre, start, -fp.axis) for t in (rp, rs)) - rp.radius - jr
     rstart = rp.centre + rp.axis * rp.length / 2
-    rjet_to_front = min(point_to_ray(t.centre, rstart, rp.axis) for t in (fp, fs)) - fp.radius - jr
+    rjet_to_front = min(point_to_ray(p_.centre, rstart, rp.axis) for p_ in pods) - pp.half_w - jr
     jet_min = cfg.jet_clear_min_D * 2 * cfg.thr_radius
     jet_len = min(jet_aft_in, jet_fwd_out)
 
-    env = np.vstack([t.envelope_points() for t in thrusters])
+    env = np.vstack([b.envelope_points() for b in bodies])
     x_lo, x_hi = min(0.0, env[:, 0].min()), max(L, env[:, 0].max())
     loa_overall = x_hi - x_lo
     lcg = G[0]
     skid_lcg = min(lcg - skid.x0, skid.x1 - lcg)
+
+    # ---- front pod: one-piece print, crush zone, side windows, impact energy
+    pod_print = pp.print_ratio(cfg.pod_bed)
+    win_frac = pp.window_area / pp.bay_side_area
+    impact_e = 0.5 * M * cfg.impact_speed ** 2
 
     c = {
         "c_loa": (loa_overall - cfg.loa_max) / cfg.loa_max,
@@ -288,6 +299,9 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         "c_skid_height": (skid.max_height - cfg.skid_max_height) / cfg.skid_max_height,
         "c_skid_lcg": (cfg.skid_lcg_margin - skid_lcg) / cfg.skid_lcg_margin,
         "c_reserve": (cfg.reserve_buoyancy_min - reserve) / cfg.reserve_buoyancy_min,
+        "c_pod_print": pod_print - 1.0,
+        "c_pod_crush": (cfg.pod_crush_len_min - pp.nose_len) / cfg.pod_crush_len_min,
+        "c_pod_window": (win_frac - cfg.pod_window_max_frac) / cfg.pod_window_max_frac,
     }
     c = {k: float(np.clip(v, -FAIL, FAIL)) for k, v in c.items()}
     feasible = all(v <= 0 for v in c.values())
@@ -337,10 +351,16 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         "skid_bottom_z": skid.z_bottom,
         "skid_max_height": skid.max_height,
         "skid_lcg_margin": skid_lcg,
+        "pod_length": pp.length, "pod_width": 2 * pp.half_w, "pod_height": 2 * pp.half_h,
+        "pod_mass_each": pp.mass(cfg),
+        "pod_print_ratio": pod_print,
+        "pod_window_frac": win_frac,
+        "impact_energy": impact_e,
+        "impact_crush_force": impact_e / pp.nose_len,
         **c,
     })
     if detail:
-        return row, Detail(d, tri, pose, thrusters, skid, bud, struts, z_wl, ring_wet)
+        return row, Detail(d, tri, pose, thrusters, skid, bud, struts, z_wl, pods)
     return row
 
 

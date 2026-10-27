@@ -146,20 +146,32 @@ def test_stl_roundtrip_size(tmp_path):
 
 def test_thruster_layout_front_ahead_rear_between():
     d = Design()
-    row, det = evaluate(d, Config(), detail=True)
+    cfg = Config()
+    row, det = evaluate(d, cfg, detail=True)
     th = {t.name: t for t in det.thrusters}
     yc = d.spacing_inner / 2 + d.beam / 2
-    # front: on the hull centreline, every envelope point ahead of the bow by the gap
-    fp = th["front_port"]
-    assert fp.centre[1] == pytest.approx(yc)
-    assert fp.envelope_points()[:, 0].min() == pytest.approx(d.loa + d.front_thr_gap, abs=2e-3)
+    # front: thruster inside a pod on the hull centreline, pod tail ahead of the bow by the gap
+    pod = det.pods[0]
+    assert pod.y == pytest.approx(yc) and th["front_port"].centre[1] == pytest.approx(yc)
+    assert pod.x0 == pytest.approx(d.loa + d.front_thr_gap)
+    # thruster envelope sits inside the pod (with the inner gap)
+    pts = th["front_port"].envelope_points()
+    assert pts[:, 0].min() >= pod.x0 + d.pod_wall - 1e-9
+    assert pts[:, 0].max() <= pod.x1 - d.pod_nose_len - d.pod_wall + 1e-9
+    assert np.abs(pts[:, 1] - pod.y).max() <= pod.half_w - d.pod_wall + 1e-9
+    assert np.abs(pts[:, 2] - pod.z).max() <= pod.half_h - d.pod_wall + 1e-9
     # rear: whole envelope inside the gap between the hulls (local hull width, any depth)
     for name in ("rear_port", "rear_stbd"):
         pts = th[name].envelope_points()
         inner = yc - halfbeam(pts[:, 0] / d.loa, d)
-        assert (np.abs(pts[:, 1]) <= inner - Config().clearance_min).all()
-    # only the front pair is shrouded
-    assert th["front_port"].radius > Config().thr_radius
-    assert th["rear_port"].radius == Config().thr_radius
-    # overall length includes the front shrouds
-    assert row["loa_overall"] > d.loa + d.front_thr_gap
+        assert (np.abs(pts[:, 1]) <= inner - cfg.clearance_min).all()
+        assert th[name].radius == cfg.thr_radius   # no shroud at the rear
+    # overall length runs to the pod nose; pod prints in one piece on the 250 mm bed
+    assert row["loa_overall"] == pytest.approx(pod.x1)
+    assert row["pod_print_ratio"] <= 1.0
+    assert row["impact_energy"] == pytest.approx(0.5 * row["mass_total"] * cfg.impact_speed ** 2)
+
+
+def test_pod_too_long_for_bed_is_flagged():
+    row = evaluate(Design(pod_nose_len=0.12, pod_tail_len=0.06))
+    assert row["c_pod_print"] > 0

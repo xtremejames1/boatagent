@@ -19,7 +19,7 @@ class Design:
     """One candidate design. Every field here is an optimizer variable."""
 
     # --- demihull ---
-    loa: float = 1.30                # hull length overall (m), front thrusters excluded
+    loa: float = 1.25                # hull length overall (m), front pods excluded
     beam: float = 0.20               # demihull max beam (m)
     depth: float = 0.24              # lowest keel point to deck (m)
     deadrise_deg: float = 10.0       # bottom deadrise angle
@@ -32,20 +32,22 @@ class Design:
 
     # --- layout ---
     spacing_inner: float = 12 * INCH  # gap between demihull inner faces (m)
-    front_thr_gap: float = 0.03       # bow stem to nearest point of the front shroud (m)
+    front_thr_gap: float = 0.03       # bow stem to the front pod's tail (m)
     rear_thr_x_frac: float = 0.06     # rear thruster centre, fraction of LOA from transom
-    front_thr_cover: float = 0.06     # water above the top of the front shroud at the design waterline (m)
+    front_thr_cover: float = 0.06     # water above the top of the front pod at the design waterline (m)
     rear_thr_cover: float = 0.06      # water above the top of the rear thrusters at the design waterline (m)
 
     # --- skid (replaceable printed rail under each hull) ---
-    skid_margin: float = 0.015       # skid bottom below lowest thruster/shroud point (m)
+    skid_margin: float = 0.015       # skid bottom below lowest thruster/pod point (m)
     skid_len_frac: float = 0.55      # skid length / LOA
     skid_x_frac: float = 0.45        # skid centre, fraction of LOA from transom
 
-    # --- front shroud ---
-    shroud_guard: float = 0.008      # shroud wall thickness around/below thruster (m)
-    shroud_chord: float = 0.12       # front mount strut chord (m)
-    shroud_tc: float = 0.15          # front mount strut thickness/chord
+    # --- front pod (faired, impact-absorbing, around the front thruster) ---
+    pod_wall: float = 0.003          # pod shell thickness (m)
+    pod_nose_len: float = 0.05       # crushable nose ahead of the thruster bay (m)
+    pod_tail_len: float = 0.01       # tail fairing aft of the thruster bay (m)
+    pylon_chord: float = 0.12        # fairing over the front thruster mount strut (m)
+    pylon_tc: float = 0.15           # pylon thickness/chord
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -58,7 +60,7 @@ class Design:
 
 # Optimizer bounds. Keys must match Design fields.
 BOUNDS: dict[str, tuple[float, float]] = {
-    "loa": (1.00, 1.50),  # hull only; front shrouds sit ahead of it within loa_max
+    "loa": (1.00, 1.50),  # hull only; front pods sit ahead of it within loa_max
     "beam": (0.12, 0.30),
     "depth": (0.15, 0.35),
     "deadrise_deg": (0.0, 25.0),
@@ -76,9 +78,11 @@ BOUNDS: dict[str, tuple[float, float]] = {
     "skid_margin": (0.010, 0.020),
     "skid_len_frac": (0.30, 0.80),
     "skid_x_frac": (0.30, 0.60),
-    "shroud_guard": (0.004, 0.015),
-    "shroud_chord": (0.08, 0.20),
-    "shroud_tc": (0.10, 0.25),
+    "pod_wall": (0.0016, 0.006),
+    "pod_nose_len": (0.03, 0.12),
+    "pod_tail_len": (0.0, 0.06),
+    "pylon_chord": (0.08, 0.20),
+    "pylon_tc": (0.10, 0.25),
 }
 
 
@@ -110,7 +114,14 @@ class Config:
     thr_force_kgf: float = 5.25      # forward thrust at 16 V
     thr_rev_force_kgf: float = 4.1   # reverse thrust at 16 V
     front_thr_angle_deg: float = 45.0  # axis angle from +x; axis points forward-outboard
-    shroud_gap: float = 0.005        # radial gap thruster -> shroud
+    pod_gap: float = 0.005           # gap between thruster and pod inner wall
+    pod_window_ratio: float = 1.0    # side window area per side / thruster disk area
+    pod_window_max_frac: float = 0.7  # windows may use at most this share of the bay side
+    pod_window_cd: float = 0.2       # PLACEHOLDER: drag of the open windows, on window area
+    pod_crush_fill: float = 0.15     # infill of the crushable nose
+    pod_crush_len_min: float = 0.03  # PLACEHOLDER: minimum crush length ahead of the thruster
+    pod_bed: tuple = (0.25, 0.25, 0.25)  # each pod must print in one piece on this bed
+    impact_speed: float = 2.0        # head-on impact speed for the energy estimate
     rear_strut_chord: float = 0.08
     rear_strut_tc: float = 0.20
     mount_fixed_kg: float = 0.06     # printed clamp/bracket per thruster mount
@@ -126,18 +137,18 @@ class Config:
     skid_min_height: float = 0.005
     skid_fill: float = 0.6           # skid printed fairly dense
     mass_calibration: float = 1.0    # measured / predicted printed mass, from a test print
-    bed: tuple = (0.256, 0.256, 0.256)  # printer build volume (m)
+    bed: tuple = (0.25, 0.25, 0.25)  # printer build volume (m), standard 250 mm bed
     joint_kg_per_m: float = 0.04     # flange/bond mass per metre of joint girth
 
     # --- constraints ---
-    loa_max: float = 1.52            # whole boat, front shrouds included
+    loa_max: float = 1.52            # whole boat, front pods included
     width_max: float = 3 * 12 * INCH  # PLACEHOLDER: overall width limit
     spacing_min: float = 10 * INCH
     gm_t_min: float = 0.30           # PLACEHOLDER (X in the brief)
     freeboard_min: float = 0.08      # PLACEHOLDER (Y in the brief)
     trim_max_deg: float = 1.5
     heel_sway_max_deg: float = 5.0
-    thr_cover_min: float = 0.05      # water above top of thruster/shroud; verify in CFD
+    thr_cover_min: float = 0.05      # water above top of rear thruster / front pod; verify in CFD
     clearance_min: float = 0.010     # thruster envelope to hull, and between thrusters
     jet_clear_min_D: float = 2.0     # free jet length before hitting a hull, in duct diameters
     skid_max_height: float = 0.12    # PLACEHOLDER: tallest acceptable rail. This limit drives the design.

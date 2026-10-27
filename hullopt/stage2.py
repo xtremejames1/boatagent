@@ -6,8 +6,9 @@ Per design and speed:
             hull at its stage 1 sinkage and trim. Times `wave_factor`.
   R_visc    ITTC-57 friction x catamaran form factor (1 + beta k) + roughness allowance.
             Form factor from Couser et al. (1997): 1 + beta k = 3.03 (L / Vol^(1/3))^-0.4.
-  R_app     struts (foil friction with Hoerner thickness factor), shroud rings, skids,
-            and thruster-pod pressure drag.
+  R_app     struts and pylons (foil friction, Hoerner thickness factor), skids,
+            front pods (Hoerner streamlined-body drag + open side windows), and
+            bare rear thrusters (pressure drag).
   R_transom Holtrop (1984) wet-transom pressure term.
 
 Sway: crossflow drag of the hull lateral profile (Cd from bilge radius / draft,
@@ -56,7 +57,6 @@ class Stage2Config:
     top_speed: float = 2.0           # report thrust margin here
     # appendages
     skid_form_k: float = 0.3
-    pod_cd_front: float = 0.6        # shrouded thruster at 45 deg, on frontal area
     pod_cd_rear: float = 0.3         # aligned, flow-through duct
     # sway / yaw crossflow
     cd_sharp: float = 1.2            # hard chine section
@@ -102,7 +102,8 @@ class Prepared:
     k_form: float
     transom_area: float      # per hull, immersed at rest
     app_fric: list           # (wetted area, reference length, form factor)
-    pod_area_cd: float       # sum Cd * frontal area of thruster pods
+    pod_area_cd: float       # sum Cd * frontal area of the bare rear thrusters
+    pods: list               # front pods (drag from Pod.drag_area)
     app_lat_cd: float        # sum Cd * lateral area of appendages
     skid_profile: tuple      # (xs, heights)
     xg: float
@@ -136,14 +137,14 @@ def prepare(d: Design, cfg: Config, c2: Stage2Config) -> Prepared | None:
             lat += c2.cd_appendage * s.chord * sub
     psi = math.radians(cfg.front_thr_angle_deg)
     for t in det.thrusters:
-        r, ln = t.radius, t.length
         if t.name.startswith("front"):
-            app.append((det.ring_wet, ln, 1.0))
-            pod += c2.pod_cd_front * (2 * r * ln * math.sin(psi) + math.pi * r * r * math.cos(psi))
-        else:
-            app.append((2 * (2 * math.pi * r * ln), ln, 1.0))
-            pod += c2.pod_cd_rear * math.pi * r * r
+            continue  # inside its pod; the pod carries the drag
+        r, ln = t.radius, t.length
+        app.append((2 * (2 * math.pi * r * ln), ln, 1.0))
+        pod += c2.pod_cd_rear * math.pi * r * r
         lat += c2.cd_appendage * 2 * r * ln
+    for pd in det.pods:
+        lat += c2.cd_appendage * pd.length * 2 * pd.half_h
     sk = det.skid
     app += [(sk.wetted_area, sk.length, 1 + c2.skid_form_k)] * 2
     lat += c2.cd_appendage * 2 * float(np.trapezoid(sk.heights, sk.xs))
@@ -160,7 +161,7 @@ def prepare(d: Design, cfg: Config, c2: Stage2Config) -> Prepared | None:
         d=d, row1=r1, x=xs, depth_edges=de, F=F, spacing=2 * hull_centre_y(d), t_local=t_loc,
         s_hull=r1["wetted_hulls"], lwl=r1["lwl"],
         k_form=form_factor(c2, r1["slenderness"]), transom_area=transom,
-        app_fric=app, pod_area_cd=pod, app_lat_cd=lat, skid_profile=(sk.xs, sk.heights),
+        app_fric=app, pod_area_cd=pod, pods=det.pods, app_lat_cd=lat, skid_profile=(sk.xs, sk.heights),
         xg=float(G[0]), yaw_torque=yaw_torque,
         f_sway=r1["f_sway"], f_surge=r1["f_surge"],
     )
@@ -174,6 +175,7 @@ def resistance(p: Prepared, U: float, cfg: Config, c2: Stage2Config, mono: bool 
     rv = q * p.s_hull * (p.k_form * ittc57(U * p.lwl / nu) + cfg.roughness_dcf)
     ra = sum(q * a * (k * ittc57(U * lr / nu) + cfg.roughness_dcf) for a, lr, k in p.app_fric)
     ra += q * p.pod_area_cd
+    ra += sum(q * pd.drag_area(ittc57(U * pd.length / nu) + cfg.roughness_dcf, cfg) for pd in p.pods)
     rt_ = 0.0
     if p.transom_area > 1e-6:
         bwl, cwp = p.row1["bwl"], p.row1["cwp"]

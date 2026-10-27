@@ -2,11 +2,12 @@
 
 Thrusters are cylinders with horizontal axes, each on a 3D-printed mount.
 
-Front pair: one ahead of each hull's bow, on that hull's centreline, inside an
-impact shroud. Axis at `front_thr_angle_deg` from +x, pointing forward-outboard,
-so the jet runs aft-inboard toward the other hull or forward-outboard, depending
-on thrust sign. The mount is an arm forward from the stem plus a faired strut
-down to the shroud.
+Front pair: one ahead of each hull's bow, on that hull's centreline, inside a
+faired pod (see Pod) with a crushable nose and side windows. Thruster axis at
+`front_thr_angle_deg` from +x, pointing forward-outboard, so the jet runs
+aft-inboard toward the other hull or forward-outboard, depending on thrust sign.
+The thruster mount (arm forward from the stem plus a strut down to the thruster)
+sits inside the pod's pylon fairing; pod and mount share the bow interface.
 
 Rear pair: unshrouded, axis fore-aft, wholly in the gap between the hulls
 (never under a hull). The mount is a faired strut down from the cross structure.
@@ -64,12 +65,100 @@ def hull_gap(points: np.ndarray, d: Design) -> float:
     return best
 
 
-def place_front(d: Design, z: float, heading: float, radius: float, length: float) -> Thruster:
-    """Port front thruster: ahead of the port bow, on the hull centreline, with
-    `front_thr_gap` between the stem and the nearest point of the shroud."""
-    half_x = 0.5 * length * abs(np.cos(heading)) + radius * abs(np.sin(heading))
-    x = d.loa + d.front_thr_gap + half_x
-    return Thruster("front_port", np.array([x, hull_centre_y(d), z]), heading, radius, length)
+@dataclass
+class Pod:
+    """Faired, impact-absorbing pod around a front thruster, aligned with +x.
+
+    Section: ellipse with half-width `half_w` and half-height `half_h` (outer).
+    From aft to fore: tail fairing, the thruster bay (thruster at 45 deg inside,
+    side windows let it draw and discharge water sideways), then a crushable nose.
+    The pod is flooded: only its printed material gives buoyancy.
+    """
+
+    name: str
+    x0: float            # tail tip
+    x1: float            # nose tip
+    y: float
+    z: float             # section centre (= thruster axis height)
+    half_w: float
+    half_h: float
+    nose_len: float      # crush zone ahead of the thruster bay
+    wall: float
+    window_area: float   # open area per side
+    bay_side_area: float  # side area of the thruster bay (per side)
+
+    @property
+    def length(self) -> float:
+        return self.x1 - self.x0
+
+    @property
+    def centre(self) -> np.ndarray:
+        return np.array([0.5 * (self.x0 + self.x1), self.y, self.z])
+
+    @property
+    def lowest_z(self) -> float:
+        return self.z - self.half_h
+
+    @property
+    def top_z(self) -> float:
+        return self.z + self.half_h
+
+    @property
+    def frontal_area(self) -> float:
+        return float(np.pi * self.half_w * self.half_h)
+
+    @property
+    def d_eq(self) -> float:
+        return float(2 * np.sqrt(self.half_w * self.half_h))
+
+    @property
+    def outer_area(self) -> float:
+        a, b = self.half_w, self.half_h
+        perim = np.pi * (3 * (a + b) - np.sqrt((3 * a + b) * (a + 3 * b)))  # Ramanujan
+        return float(0.8 * perim * self.length)  # 0.8: nose and tail taper
+
+    def material_volume(self, cfg: Config) -> float:
+        shell = max(self.outer_area - 2 * self.window_area, 0.0) * self.wall
+        crush = 0.5 * self.frontal_area * self.nose_len * cfg.pod_crush_fill
+        return float(shell + crush)
+
+    def mass(self, cfg: Config) -> float:
+        return self.material_volume(cfg) * cfg.fil_density * cfg.mass_calibration
+
+    def drag_area(self, cf: float, cfg: Config) -> float:
+        """Cd x A (m^2): Hoerner streamlined-body drag on frontal area, plus window drag."""
+        ld = self.length / self.d_eq
+        cd_body = cf * (3 * ld + 4.5 * ld ** -0.5 + 21 * ld ** -2)
+        return cd_body * self.frontal_area + 2 * self.window_area * cfg.pod_window_cd
+
+    def envelope_points(self, n_ax: int = 9, n_circ: int = 16) -> np.ndarray:
+        xs = np.linspace(self.x0, self.x1, n_ax)[:, None]
+        a = np.linspace(0, 2 * np.pi, n_circ, endpoint=False)[None, :]
+        y = self.y + self.half_w * np.cos(a) + 0 * xs
+        z = self.z + self.half_h * np.sin(a) + 0 * xs
+        return np.stack([xs + 0 * a, y, z], -1).reshape(-1, 3)
+
+    def print_ratio(self, bed) -> float:
+        """Largest pod dimension / matching bed dimension (<= 1 fits in one piece)."""
+        dims = sorted([self.length, 2 * self.half_w, 2 * self.half_h])
+        return float(max(dd / b for dd, b in zip(dims, sorted(bed))))
+
+
+def place_front(d: Design, cfg: Config, z: float, heading: float) -> tuple[Thruster, Pod]:
+    """Port front thruster and its pod: ahead of the port bow on the hull centreline,
+    `front_thr_gap` between the stem and the pod's tail."""
+    R, l, g, w = cfg.thr_radius, cfg.thr_length, cfg.pod_gap, d.pod_wall
+    sn, cs = abs(np.sin(heading)), abs(np.cos(heading))
+    xe = 0.5 * l * cs + R * sn + g          # half x-extent of the bay
+    half_w = 0.5 * l * sn + R * cs + g + w   # thruster at 45 deg sets the width
+    half_h = R + g + w
+    x0 = d.loa + d.front_thr_gap
+    xt = x0 + d.pod_tail_len + w + xe
+    x1 = xt + xe + w + d.pod_nose_len
+    yc = hull_centre_y(d)
+    win = cfg.pod_window_ratio * np.pi * R * R
+    pod = Pod("front_port", x0, x1, yc, z, half_w, half_h, d.pod_nose_len, w, win, 2 * xe * 2 * (R + g))
+    return Thruster("front_port", np.array([xt, yc, z]), heading, R, l), pod
 
 
 def place_rear(d: Design, x: float, z: float, radius: float, length: float, clearance: float) -> Thruster:
@@ -154,16 +243,6 @@ def mount_mass(strut: Strut, arm_length: float, cfg: Config) -> float:
     """Printed mount: faired strut + horizontal arm + clamp/bracket."""
     arm = arm_length * cfg.mount_arm_kg_per_m * cfg.mass_calibration
     return strut.mass(cfg) + arm + cfg.mount_fixed_kg
-
-
-def shroud_ring(cfg: Config, d: Design):
-    """Mass, enclosed material volume and wetted area of one front shroud ring."""
-    r = cfg.thr_radius + cfg.shroud_gap + 0.5 * d.shroud_guard
-    L = cfg.thr_length + 0.01
-    vol = 2 * np.pi * r * L * d.shroud_guard
-    mass = vol * cfg.fil_density * cfg.mass_calibration
-    wet = 2 * (2 * np.pi * r * L)
-    return mass, vol, wet
 
 
 @dataclass
