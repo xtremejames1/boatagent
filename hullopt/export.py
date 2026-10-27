@@ -1,5 +1,5 @@
-"""STL export of a design: front pod (with windows, thruster, pylon and arm) and the
-whole boat (hulls, skid pads, pods, thrusters, struts, front arms) for viewing.
+"""STL export of a design: front pod (with windows, thruster and its two bow
+members) and the whole boat (hulls, skid pads, pods, thrusters, mount members).
 
 Viewing meshes only: the pod is its outer skin with the side windows cut out,
 so the thruster shows through. Body frame, metres.
@@ -83,18 +83,22 @@ def thruster_mesh(t: Thruster, n: int = 32) -> Mesh:
 
 
 def foil_mesh(s: Strut, n: int = 24) -> Mesh:
-    """NACA 00xx strut along its axis (vertical or diagonal), chord along x."""
+    """Member from p0 to p1 with a NACA 00xx section (chord x tc*chord)."""
     xc = 0.5 * (1 - np.cos(np.linspace(0, np.pi, n // 2 + 1)))
     yt = 5 * s.tc * (0.2969 * np.sqrt(xc) - 0.1260 * xc - 0.3516 * xc**2 + 0.2843 * xc**3 - 0.1036 * xc**4)
-    # upper surface LE->TE then lower TE->LE is clockwise in (x, y); reverse it to CCW
+    # upper surface LE->TE then lower TE->LE is clockwise in (b, c); reverse it to CCW
     px = (np.concatenate([xc, xc[-2:0:-1]]) - 0.5)[::-1]
     py = np.concatenate([yt, -yt[-2:0:-1]])[::-1]
     m = loft(np.array([0.0, s.length]), np.tile(px * s.chord, (2, 1)), np.tile(py * s.chord, (2, 1)))
-    # loft frame (a, b, c) -> world: a along the strut axis, b along x (chord), c = a x b
-    u = np.array([0.0, s.y1 - s.y, s.z_top - s.z_bot]) / s.length
-    ex = np.array([1.0, 0.0, 0.0])
-    R = np.column_stack([u, ex, np.cross(u, ex)])
-    return _to_world(m, R, [s.x, s.y, s.z_bot])
+    # loft frame (a, b, c) -> world: a along the member, b = chord direction, c = a x b
+    u = (s.p1 - s.p0) / s.length
+    if s.aligned:
+        b = np.array([1.0, 0.0, 0.0])                    # chord along the flow
+    else:
+        b = np.cross([0.0, 1.0, 0.0], u)                 # chord upright, thickness across y
+        b /= np.linalg.norm(b)
+    R = np.column_stack([u, b, np.cross(u, b)])
+    return _to_world(m, R, s.p0)
 
 
 def skid_meshes(d: Design, skid, y: float) -> list[Mesh]:
@@ -112,44 +116,17 @@ def skid_meshes(d: Design, skid, y: float) -> list[Mesh]:
     return out
 
 
-def box_mesh(p0, p1, w: float, h: float) -> Mesh:
-    """Rectangular beam from p0 to p1 (horizontal), w wide and h tall."""
-    p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
-    u = p1 - p0
-    L = float(np.linalg.norm(u))
-    ys = np.array([0, w / 2, w / 2, 0, -w / 2, -w / 2])
-    zs = np.array([-h / 2, -h / 2, h / 2, h / 2, h / 2, -h / 2])
-    m = loft(np.array([0.0, L]), np.tile(ys, (2, 1)), np.tile(zs, (2, 1)))
-    c, s_ = u[0] / L, u[1] / L
-    R = np.array([[c, -s_, 0], [s_, c, 0], [0, 0, 1]])
-    return _to_world(m, R, p0)
-
-
-def mount_meshes(d: Design, det) -> list[Mesh]:
-    """Front: arm along the deck from the bow stem to the pylon. (The rear struts
-    run diagonally into the hull sides, so they need no extra member.)"""
-    out = []
-    deck, bw = d.depth, 0.03
-    for s in det.struts:
-        if s.name.startswith("front"):
-            out.append(box_mesh([d.loa - 0.04, s.y, deck - bw / 2], [s.x + s.chord / 2, s.y, deck - bw / 2],
-                                bw, bw))
-    return out
-
-
 def build(d: Design, cfg: Config):
     row, det = evaluate(d, cfg, detail=True)
     if det is None:
         raise ValueError(f"design does not float: {row.get('fail_reason')}")
     th = {t.name: t for t in det.thrusters}
-    st = {s.name: s for s in det.struts}
     pod = det.pods[0]
-    arm = [m for m in mount_meshes(d, det)[:1]]
-    pod_parts = Mesh.merge(pod_mesh(pod), thruster_mesh(th["front_port"]), foil_mesh(st["front_port"]), *arm)
+    members = [foil_mesh(s) for s in det.struts if s.name.startswith("front_port")]
+    pod_parts = Mesh.merge(pod_mesh(pod), thruster_mesh(th["front_port"]), *members)
     yc = hull_centre_y(d)
     parts = [catamaran_mesh(d, cfg.n_stations)]
     parts += skid_meshes(d, det.skid, yc) + skid_meshes(d, det.skid, -yc)
-    parts += mount_meshes(d, det)
     parts += [pod_mesh(p) for p in det.pods]
     parts += [thruster_mesh(t) for t in det.thrusters]
     parts += [foil_mesh(s) for s in det.struts]

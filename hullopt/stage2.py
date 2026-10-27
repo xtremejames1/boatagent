@@ -6,7 +6,8 @@ Per design and speed:
             hull at its stage 1 sinkage and trim. Times `wave_factor`.
   R_visc    ITTC-57 friction x catamaran form factor (1 + beta k) + roughness allowance.
             Form factor from Couser et al. (1997): 1 + beta k = 3.03 (L / Vol^(1/3))^-0.4.
-  R_app     struts and pylons (foil friction, Hoerner thickness factor), skids,
+  R_app     rear struts (foil friction, Hoerner thickness factor), front bow
+            members (friction + pressure on their 12 mm face), skids,
             front pods (Hoerner streamlined-body drag + open side windows), and
             bare rear thrusters (pressure drag).
   R_transom Holtrop (1984) wet-transom pressure term.
@@ -133,9 +134,14 @@ def prepare(d: Design, cfg: Config, c2: Stage2Config) -> Prepared | None:
     lat = 0.0
     for s in det.struts:
         sub = s.submerged_length(det.z_wl)
-        if sub > 0:
+        if sub <= 0:
+            continue
+        if s.aligned:   # foil facing the flow: friction with Hoerner thickness factor
             app.append((2.04 * s.chord * sub, s.chord, 1 + 2 * s.tc + 60 * s.tc**4))
-            lat += c2.cd_appendage * s.chord * s.submerged_height(det.z_wl)
+        else:           # bow member: friction along it plus pressure on its 12 mm face
+            app.append((2.04 * s.chord * sub, sub, 1.0))
+            pod += cfg.member_cd * s.frontal_area(det.z_wl)
+        lat += c2.cd_appendage * s.side_area(det.z_wl)
     for t in det.thrusters:
         if t.name.startswith("front"):
             continue  # inside its pod; the pod carries the drag

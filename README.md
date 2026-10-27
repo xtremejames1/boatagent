@@ -57,8 +57,9 @@ For each design (about 0.1 s each):
      trapezoid in side view: a flat bottom `skid_margin` below the lowest thruster
      or pod point, with 45° ends rising to the keel. Positions and flat length are
      optimizer variables.
-   - The front mount is an arm along the deck from the bow stem to the pod's
-     pylon. Each rear thruster hangs from one diagonal strut that runs outboard
+   - Each front pod hangs from two diagonal members off the bow stem, forming a
+     triangle bracket. The upper one runs from the stem top down to the pod top;
+     the lower one runs from low on the stem to the pod's tail. Each rear thruster hangs from one diagonal strut that runs outboard
      and up at 45° from the thruster top into its own hull's side (no
      crossbeam). The strut section is 48 mm chord × 12 mm thick, against a
      minimum of 24 × 12 mm.

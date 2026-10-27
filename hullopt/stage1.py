@@ -41,7 +41,6 @@ from .geometry import (
 )
 from .hydrostatics import Appendages, Pose, equilibrium, gz_curve, hydro, solve_heave
 from .layout import (
-    Strut,
     Thruster,
     hull_gap,
     jet_free_length,
@@ -52,6 +51,7 @@ from .layout import (
     place_front,
     place_rear,
     rear_strut,
+    front_members,
     point_to_ray,
 )
 from .mass import MassBudget, demihull_mass
@@ -148,10 +148,12 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         thrusters = [fp, fs, rp, rs]
 
         struts = []
-        for t in (fp, fs):   # front: vertical pylon from the deck-level arm down to the pod
-            struts.append(Strut(t.name, t.centre[0], t.centre[1], deck, pp.top_z, d.pylon_chord, d.pylon_tc))
-        for t in (rp, rs):   # rear: diagonal from the thruster up into the hull side
-            struts.append(rear_strut(d, cfg, t))
+        mounts = []          # each mount: list of members
+        for t, p_ in zip((fp, fs), pods):   # front: two diagonal members from the stem
+            mounts.append(front_members(d, cfg, t, p_))
+        for t in (rp, rs):   # rear: one diagonal from the thruster up into the hull side
+            mounts.append([rear_strut(d, cfg, t)])
+        struts = [m for mt in mounts for m in mt]
 
         lowest = min(b.lowest_z for b in pods + [rp, rs])
         skid = make_skid(d, cfg, lowest)
@@ -164,9 +166,9 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         for p_ in pods:
             bud.add("pods", p_.mass(cfg), p_.centre)
             app.add(p_.material_volume(cfg), p_.centre)
+        for mt in mounts:
+            bud.add("mounts", mount_mass(mt, cfg), np.mean([m.cg for m in mt], axis=0))
         for s_ in struts:
-            arm = max(s_.x - L, 0.0) if s_.name.startswith("front") else 0.0
-            bud.add("mounts", mount_mass(s_, arm, cfg), s_.cg)
             vs = s_.volume_submerged(z_wl)
             if vs > 0:
                 app.add(vs, s_.submerged_centre(z_wl))
@@ -239,7 +241,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
     fr = [v / math.sqrt(g * lwl) for v in cfg.surge_speeds]
 
     a_lat = hy.lateral_area + 2 * float(np.trapezoid(skid.heights, skid.xs))
-    a_lat += sum(s.submerged_height(z_wl) * s.chord for s in struts)
+    a_lat += sum(s.side_area(z_wl) for s in struts)
     a_lat += sum(p_.length * 2 * p_.half_h for p_ in pods)
     sway_drag = 0.5 * rho * cfg.sway_speed ** 2 * cfg.sway_cd * a_lat
     f_sway = 2 * cfg.thr_force_kgf * g * math.sin(psi)
@@ -286,7 +288,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
     win_frac = pp.window_area / pp.bay_side_area
     rear_st = [s_ for s_ in struts if s_.name.startswith("rear")]
     strut_size = max(max(cfg.strut_min_thickness / s_.thickness, cfg.strut_min_chord / s_.chord)
-                     for s_ in rear_st)
+                     for s_ in struts)
     impact_e = 0.5 * M * cfg.impact_speed ** 2
 
     c = {

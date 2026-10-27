@@ -7,8 +7,9 @@ faired pod (see Pod) with a load-taking nose and side windows. Thruster axis at
 `front_thr_angle_deg` from +x. With toe-in (default) the axis points
 forward-inboard, so the jet runs aft-outboard past the outside of the hull, or
 forward-inboard ahead of the boat, depending on thrust sign.
-The thruster mount (arm forward from the stem plus a strut down to the thruster)
-sits inside the pod's pylon fairing; pod and mount share the bow interface.
+The mount is two diagonal members from the bow stem (upper: stem top to pod
+top; lower: low on the stem to the pod tail), a triangle bracket that shares
+the bow interface with the pod.
 
 Rear pair: unshrouded, axis fore-aft, wholly in the gap between the hulls
 (never under a hull). The mount is a faired strut down from the cross structure.
@@ -208,46 +209,85 @@ def point_to_ray(p: np.ndarray, origin: np.ndarray, u: np.ndarray) -> float:
 
 @dataclass
 class Strut:
-    """Faired straight strut from a thruster/pod top (x, y, z_bot) up to
-    (x, y_top, z_top). Vertical when y_top is None; the rear struts run
-    diagonally outboard into the hull side."""
+    """Straight printed member from p0 to p1 (body frame), hollow faired section:
+    `chord` x `tc * chord` thick.
+
+    aligned=True: chord along +x (a foil facing the flow; rear struts).
+    aligned=False: chord in the member's vertical plane, thickness across y
+    (front bow members: 12 mm faces the flow, 24+ mm upright).
+    """
 
     name: str
-    x: float
-    y: float
-    z_top: float
-    z_bot: float
+    p0: np.ndarray
+    p1: np.ndarray
     chord: float
     tc: float
-    y_top: float | None = None
+    aligned: bool = True
+
+    # convenience views
+    @property
+    def x(self) -> float:
+        return float(self.p0[0])
+
+    @property
+    def y(self) -> float:
+        return float(self.p0[1])
 
     @property
     def y1(self) -> float:
-        return self.y if self.y_top is None else self.y_top
+        return float(self.p1[1])
+
+    @property
+    def z_bot(self) -> float:
+        return float(self.p0[2])
+
+    @property
+    def z_top(self) -> float:
+        return float(self.p1[2])
 
     @property
     def length(self) -> float:
-        return float(np.hypot(self.y1 - self.y, max(self.z_top - self.z_bot, 0.0)))
+        return float(np.linalg.norm(self.p1 - self.p0))
 
     @property
     def thickness(self) -> float:
         return self.tc * self.chord
 
-    def submerged_height(self, z_wl: float) -> float:
-        """Vertical extent below the waterline."""
-        return max(0.0, min(self.z_top, z_wl) - self.z_bot)
+    def _sub(self, z_wl: float) -> tuple[float, float]:
+        """Submerged share of the length, and the parameter t of its midpoint."""
+        z0, z1 = self.p0[2], self.p1[2]
+        if abs(z1 - z0) < 1e-12:
+            return (1.0, 0.5) if z0 < z_wl else (0.0, 0.5)
+        t = (z_wl - z0) / (z1 - z0)
+        if z1 > z0:
+            f = float(np.clip(t, 0, 1))
+            return f, f / 2
+        f = float(np.clip(1 - t, 0, 1))
+        return f, 1 - f / 2
 
     def submerged_length(self, z_wl: float) -> float:
-        dz = self.z_top - self.z_bot
-        return self.length * self.submerged_height(z_wl) / dz if dz > 0 else 0.0
+        return self.length * self._sub(z_wl)[0]
+
+    def submerged_height(self, z_wl: float) -> float:
+        """Vertical extent below the waterline."""
+        return abs(self.p1[2] - self.p0[2]) * self._sub(z_wl)[0]
 
     def submerged_centre(self, z_wl: float) -> np.ndarray:
-        dz = self.z_top - self.z_bot
-        f = 0.5 * self.submerged_height(z_wl) / dz if dz > 0 else 0.0
-        return np.array([self.x, self.y + f * (self.y1 - self.y), self.z_bot + f * dz])
+        return self.p0 + self._sub(z_wl)[1] * (self.p1 - self.p0)
+
+    def side_area(self, z_wl: float) -> float:
+        """Submerged area seen from the side (xz projection)."""
+        d = self.p1 - self.p0
+        if self.aligned:
+            return self.chord * self.submerged_height(z_wl)
+        return self.chord * self._sub(z_wl)[0] * float(np.hypot(d[0], d[2]))
+
+    def frontal_area(self, z_wl: float) -> float:
+        """Submerged area facing the flow for a non-aligned member (thickness x height)."""
+        return 0.0 if self.aligned else self.thickness * self.submerged_height(z_wl)
 
     def mass(self, cfg: Config) -> float:
-        # hollow printed foil: perimeter ~2.04 c (plus the arm/clamp, see mount_mass)
+        # hollow printed section: perimeter ~2.04 c
         return self.length * 2.04 * self.chord * cfg.strut_wall * cfg.fil_density * cfg.mass_calibration
 
     def volume_submerged(self, z_wl: float) -> float:
@@ -258,7 +298,7 @@ class Strut:
 
     @property
     def cg(self) -> np.ndarray:
-        return np.array([self.x, 0.5 * (self.y + self.y1), 0.5 * (self.z_top + self.z_bot)])
+        return 0.5 * (self.p0 + self.p1)
 
 
 def rear_strut(d: Design, cfg: Config, t: Thruster) -> Strut:
@@ -275,13 +315,28 @@ def rear_strut(d: Design, cfg: Config, t: Thruster) -> Strut:
     inside = np.nan_to_num(b - np.abs(ys - yc), nan=-1.0) >= 0
     idx = np.nonzero(inside | (zs >= d.depth))[0]
     k = idx[0] if len(idx) else len(s) - 1
-    return Strut(t.name, x, y0, float(zs[k]), z0, cfg.rear_strut_chord, cfg.rear_strut_tc, float(ys[k]))
+    return Strut(t.name, np.array([x, y0, z0]), np.array([x, float(ys[k]), float(zs[k])]),
+                 cfg.rear_strut_chord, cfg.rear_strut_tc, aligned=True)
 
 
-def mount_mass(strut: Strut, arm_length: float, cfg: Config) -> float:
-    """Printed mount: faired strut + horizontal arm + clamp/bracket."""
-    arm = arm_length * cfg.mount_arm_kg_per_m * cfg.mass_calibration
-    return strut.mass(cfg) + arm + cfg.mount_fixed_kg
+def front_members(d: Design, cfg: Config, t: Thruster, pod: Pod) -> list[Strut]:
+    """Two diagonal members from the bow stem to the pod (a triangle bracket):
+    upper from the stem top (deck) down-forward to the pod top above the thruster,
+    lower from low on the stem (just above the keel) to the pod's tail."""
+    L, e = d.loa, cfg.stem_embed
+    z_keel = float(keel_z(np.array([1.0]), d)[0])
+    upper = Strut(t.name + "_upper", np.array([L - e, pod.y, d.depth - cfg.stem_attach_margin]),
+                  np.array([t.centre[0], pod.y, pod.top_z]),
+                  cfg.front_strut_chord, cfg.front_strut_tc, aligned=False)
+    lower = Strut(t.name + "_lower", np.array([L - e, pod.y, z_keel + cfg.stem_attach_margin]),
+                  np.array([pod.x0 + pod.wall, pod.y, pod.z]),
+                  cfg.front_strut_chord, cfg.front_strut_tc, aligned=False)
+    return [upper, lower]
+
+
+def mount_mass(members: list, cfg: Config) -> float:
+    """Printed mount: its members plus one clamp/bracket."""
+    return sum(m.mass(cfg) for m in members) + cfg.mount_fixed_kg
 
 
 @dataclass

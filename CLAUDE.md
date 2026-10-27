@@ -12,7 +12,9 @@ pipeline for a small holonomic autonomous catamaran (RoboBoat-scale).
     that goes in front (aligned with the flow). The pod must survive a head-on hit,
     or absorb it and break off; it has side openings so the thruster can draw
     water from the side; it fits over the thruster mount and thruster and attaches
-    at the same hull interface point as the mount (arm from the bow stem); it
+    at the same hull interface point as the mount; the mount is two diagonal
+    members off the bow stem (upper: stem top to pod top; lower: low on the stem
+    to the pod tail), each at least 12 x 24 mm; it
     need not crush, just take the load instead of the thruster; min 4 walls and
     10 % infill; it prints in one piece on a
     standard 250 x 250 mm bed.
@@ -61,7 +63,7 @@ pipeline for a small holonomic autonomous catamaran (RoboBoat-scale).
 | Demihull | length, beam, draft, section shape (bilge radius/deadrise), rocker, bow entry angle, transom width |
 | Layout | hull spacing (inner-face, ≥10 in), fore-aft thruster positions |
 | Skid | two trapezoid pads per hull (fore/aft): depth below lowest thruster (small margin, ~1–2 cm), flat length, fore-aft positions. |
-| Front pod | depth (cover), wall, nose length, tail length, pylon chord/thickness. Window size and shape, and the pylon alignment, tested as discrete cases at stage 3. |
+| Front pod | depth (cover), wall, nose length, tail length. Bow members fixed at 48 x 12 mm (min 24 x 12). Window size and shape tested as discrete cases at stage 3. |
 
 Hard constraints: skid bottom below lowest thruster, displacement ≥ mass, GM_T ≥ X,
 freeboard ≥ Y, LOA ≤ 1.52 m, overall width limit, thrusters submerged enough to
@@ -79,7 +81,7 @@ avoid ventilation.
    Score on the weighted 0.5–1.5 m/s objective.
 3. **Stage 3 — OpenFOAM interFoam (5–10 finalists):** free sinkage/trim, surge and
    sway cases, actuator-disk thrusters for interaction and ventilation, front
-   pod window/pylon cases. Validate setup first on a Wigley catamaran benchmark; do a mesh
+   pod window cases. Validate setup first on a Wigley catamaran benchmark; do a mesh
    independence study.
 
 Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
@@ -127,5 +129,5 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
 Stage 3: OpenFOAM interFoam. Validate on a Wigley catamaran first (reference Michell
 values from `python -m hullopt.stage2 wigley`), mesh independence study, then the
 finalists: free sinkage/trim surge cases, sway cases, actuator-disk thrusters,
-pod window/pylon cases. Use CFD to calibrate `wave_factor`, `pod_window_cd` and the
+pod window cases. Use CFD to calibrate `wave_factor`, `pod_window_cd` and the
 rear-thruster Cd.

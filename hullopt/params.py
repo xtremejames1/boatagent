@@ -47,8 +47,6 @@ class Design:
     pod_wall: float = 0.003          # pod shell thickness (m)
     pod_nose_len: float = 0.05       # crushable nose ahead of the thruster bay (m)
     pod_tail_len: float = 0.01       # tail fairing aft of the thruster bay (m)
-    pylon_chord: float = 0.12        # fairing over the front thruster mount strut (m)
-    pylon_tc: float = 0.15           # pylon thickness/chord
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -83,8 +81,6 @@ BOUNDS: dict[str, tuple[float, float]] = {
     "pod_wall": (0.0016, 0.006),
     "pod_nose_len": (0.03, 0.12),
     "pod_tail_len": (0.0, 0.06),
-    "pylon_chord": (0.08, 0.20),
-    "pylon_tc": (0.10, 0.25),
 }
 
 
@@ -128,10 +124,14 @@ class Config:
     rear_strut_chord: float = 0.048  # diagonal rear strut, chord along the flow (m)
     rear_strut_tc: float = 0.25      # -> 12 mm thick
     rear_strut_angle_deg: float = 45.0  # from vertical, outboard-up into the hull side
-    strut_min_thickness: float = 0.012  # rear strut section minimum (12 mm x 24 mm)
+    strut_min_thickness: float = 0.012  # every mount member: at least 12 mm x 24 mm
     strut_min_chord: float = 0.024
     mount_fixed_kg: float = 0.06     # printed clamp/bracket per thruster mount
-    mount_arm_kg_per_m: float = 0.30  # printed arm from the stem to a front thruster
+    front_strut_chord: float = 0.048  # front bow members: upright depth (m)
+    front_strut_tc: float = 0.25     # -> 12 mm across the flow
+    stem_embed: float = 0.02         # members run this far into the stem
+    stem_attach_margin: float = 0.015  # member ends this far below deck / above keel
+    member_cd: float = 1.0           # pressure drag of front members on thickness x height
 
     # --- printing ---
     fil_density: float = 1270.0      # PETG (kg/m^3)

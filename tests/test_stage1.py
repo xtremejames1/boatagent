@@ -250,3 +250,22 @@ def test_rear_strut_diagonal_into_hull():
         # section at least 12 mm thick and 24 mm chord
         assert s.thickness >= 0.012 - 1e-12 and s.chord >= 0.024
     assert row["c_strut_size"] <= 0
+
+
+def test_front_bow_members():
+    d, cfg = Design(), Config()
+    row, det = evaluate(d, cfg, detail=True)
+    pod = det.pods[0]
+    up = next(s for s in det.struts if s.name == "front_port_upper")
+    lo = next(s for s in det.struts if s.name == "front_port_lower")
+    for s in (up, lo):
+        # start inside the bow stem, run forward to the pod, in the hull's centre plane
+        assert s.p0[0] < d.loa < s.p1[0]
+        assert s.p0[1] == pytest.approx(pod.y) and s.p1[1] == pytest.approx(pod.y)
+        assert s.thickness >= 0.012 - 1e-12 and s.chord >= 0.024 and not s.aligned
+    # upper: from near the deck down to the pod top; lower: low on the stem to the pod tail
+    assert up.p0[2] > d.depth - 0.03 and up.p1[2] == pytest.approx(pod.top_z)
+    assert lo.p0[2] < up.p0[2] and lo.p1[0] == pytest.approx(pod.x0 + pod.wall)
+    # no vertical pylon any more: two front members per side, one rear strut per side
+    assert sum(s.name.startswith("front") for s in det.struts) == 4
+    assert sum(s.name.startswith("rear") for s in det.struts) == 2
