@@ -80,7 +80,7 @@ drag until stage 2 computes it. `--sampler lhs` runs without Optuna.
 |---|---|
 | `summary.md` | counts, which constraints bind, representative designs |
 | `all.csv` | every evaluation (not committed; regenerate) |
-| `feasible.csv`, `pareto.csv` | feasible designs, and the non-dominated ones |
+| `feasible.csv`, `pareto.csv` | feasible designs (not committed), and the non-dominated ones |
 | `stage2_candidates.csv` | up to `--select` (200) diverse feasible designs, by Pareto rank then crowding |
 | `designs/*.json`, `*.stl` | min-mass, min-drag, max-slenderness and knee designs |
 | `config.json` | the config used |

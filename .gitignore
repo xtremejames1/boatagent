@@ -3,3 +3,4 @@ __pycache__/
 .pytest_cache/
 results/**/all.csv
 results/**/*_demihull.stl
+results/**/feasible.csv
