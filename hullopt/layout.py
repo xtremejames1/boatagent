@@ -3,9 +3,10 @@
 Thrusters are cylinders with horizontal axes, each on a 3D-printed mount.
 
 Front pair: one ahead of each hull's bow, on that hull's centreline, inside a
-faired pod (see Pod) with a crushable nose and side windows. Thruster axis at
-`front_thr_angle_deg` from +x, pointing forward-outboard, so the jet runs
-aft-inboard toward the other hull or forward-outboard, depending on thrust sign.
+faired pod (see Pod) with a load-taking nose and side windows. Thruster axis at
+`front_thr_angle_deg` from +x. With toe-in (default) the axis points
+forward-inboard, so the jet runs aft-outboard past the outside of the hull, or
+forward-inboard ahead of the boat, depending on thrust sign.
 The thruster mount (arm forward from the stem plus a strut down to the thruster)
 sits inside the pod's pylon fairing; pod and mount share the bow interface.
 
@@ -246,47 +247,106 @@ def mount_mass(strut: Strut, arm_length: float, cfg: Config) -> float:
 
 
 @dataclass
-class Skid:
-    x0: float
-    x1: float
-    z_bottom: float
-    width: float
-    heights: np.ndarray
+class SkidPad:
+    """One trapezoidal pad (side view): flat bottom of length `flat` at z_bottom,
+    ends sloping up at `slope_deg` until they meet the keel; top follows the keel."""
+
+    xc: float
+    flat: float
     xs: np.ndarray
+    heights: np.ndarray
 
     @property
-    def length(self) -> float:
-        return self.x1 - self.x0
+    def flat_x0(self) -> float:
+        return self.xc - self.flat / 2
+
+    @property
+    def flat_x1(self) -> float:
+        return self.xc + self.flat / 2
+
+    @property
+    def top_length(self) -> float:
+        return float(self.xs[-1] - self.xs[0])
+
+
+@dataclass
+class Skid:
+    """Two printed pads per hull, fore and aft (same on both hulls).
+
+    The boat rests on the four flat pad bottoms; it sits stable on flat ground
+    when the LCG falls between the aft and forward pads (x0..x1).
+    """
+
+    pads: list
+    z_bottom: float
+    width: float
+
+    @property
+    def x0(self) -> float:          # aft end of the support span
+        return min(p.flat_x0 for p in self.pads)
+
+    @property
+    def x1(self) -> float:          # forward end of the support span
+        return max(p.flat_x1 for p in self.pads)
+
+    @property
+    def xs(self) -> np.ndarray:     # combined profile (zero between pads)
+        return np.concatenate([p.xs for p in self.pads])
+
+    @property
+    def heights(self) -> np.ndarray:
+        return np.concatenate([p.heights for p in self.pads])
+
+    @property
+    def length(self) -> float:      # reference length for friction (mean pad length)
+        return float(np.mean([p.top_length for p in self.pads]))
 
     @property
     def max_height(self) -> float:
-        return float(self.heights.max())
+        return float(max(p.heights.max() for p in self.pads))
+
+    def _int(self, f) -> float:
+        return float(sum(np.trapezoid(f(p), p.xs) for p in self.pads))
 
     @property
     def volume(self) -> float:
-        # rounded rail: ~0.9 of the bounding rectangle
-        return float(0.9 * self.width * np.trapezoid(self.heights, self.xs))
+        # rounded section: ~0.9 of the bounding rectangle
+        return 0.9 * self.width * self._int(lambda p: p.heights)
 
     @property
     def centroid(self) -> np.ndarray:
-        a = self.heights
-        A = np.trapezoid(a, self.xs)
-        xc = np.trapezoid(a * self.xs, self.xs) / A
-        zc = np.trapezoid(a * (self.z_bottom + a / 2), self.xs) / A
+        A = self._int(lambda p: p.heights)
+        xc = self._int(lambda p: p.heights * p.xs) / A
+        zc = self._int(lambda p: p.heights * (self.z_bottom + p.heights / 2)) / A
         return np.array([xc, 0.0, zc])
 
     @property
     def wetted_area(self) -> float:
-        return float(np.trapezoid(2 * self.heights + self.width, self.xs))
+        return self._int(lambda p: 2 * p.heights + self.width)
+
+    @property
+    def lateral_area(self) -> float:
+        return self._int(lambda p: p.heights)
+
+
+def make_pad(d: Design, xc: float, flat: float, zb: float, slope_deg: float) -> SkidPad:
+    t = np.tan(np.radians(slope_deg))
+    # widest possible span: flat plus slopes up to the highest keel point
+    reach = (max(d.rocker_fwd, d.rocker_aft) - zb) / t
+    xs = np.linspace(max(0.0, xc - flat / 2 - reach), min(d.loa, xc + flat / 2 + reach), 161)
+    bottom = zb + np.maximum(np.abs(xs - xc) - flat / 2, 0.0) * t
+    h = keel_z(xs / d.loa, d) - bottom
+    keep = h > 0
+    idx = np.nonzero(keep)[0]
+    xs, h = xs[idx[0]: idx[-1] + 1], np.maximum(h[idx[0]: idx[-1] + 1], 0.0)
+    return SkidPad(xc, flat, xs, h)
 
 
 def make_skid(d: Design, cfg: Config, lowest_other_z: float) -> Skid:
-    """Flat-bottomed rail: bottom sits `skid_margin` below the lowest thruster/shroud
-    point, and at least `skid_min_height` below the keel."""
+    """Fore and aft pads. Their flat bottoms sit `skid_margin` below the lowest
+    thruster/pod point, and at least `skid_min_height` below the keel."""
     zb = min(lowest_other_z - d.skid_margin, -cfg.skid_min_height)
-    half = 0.5 * d.skid_len_frac * d.loa
-    xc = d.skid_x_frac * d.loa
-    x0, x1 = max(0.0, xc - half), min(d.loa, xc + half)
-    xs = np.linspace(x0, x1, 41)
-    h = keel_z(xs / d.loa, d) - zb
-    return Skid(x0, x1, zb, cfg.skid_width, h, xs)
+    L, f = d.loa, d.skid_pad_len
+    pads = [make_pad(d, float(np.clip(x * L, f / 2, L - f / 2)), f, zb, cfg.skid_end_slope_deg)
+            for x in (d.skid_aft_x_frac, d.skid_fwd_x_frac)]
+    return Skid(pads, zb, cfg.skid_width)

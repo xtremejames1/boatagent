@@ -136,7 +136,6 @@ def prepare(d: Design, cfg: Config, c2: Stage2Config) -> Prepared | None:
         if sub > 0:
             app.append((2.04 * s.chord * sub, s.chord, 1 + 2 * s.tc + 60 * s.tc**4))
             lat += c2.cd_appendage * s.chord * sub
-    psi = math.radians(cfg.front_thr_angle_deg)
     for t in det.thrusters:
         if t.name.startswith("front"):
             continue  # inside its pod; the pod carries the drag
@@ -154,7 +153,8 @@ def prepare(d: Design, cfg: Config, c2: Stage2Config) -> Prepared | None:
     G = det.budget.cg
     fp = next(t for t in det.thrusters if t.name == "front_port")
     rp = next(t for t in det.thrusters if t.name == "rear_port")
-    tau_front = abs((fp.centre[0] - G[0]) * math.sin(psi) - fp.centre[1] * math.cos(psi))
+    # z-moment of a unit force along the port front axis, about G
+    tau_front = abs((fp.centre[0] - G[0]) * math.sin(fp.heading) - (fp.centre[1] - G[1]) * math.cos(fp.heading))
     pair = (cfg.thr_force_kgf + cfg.thr_rev_force_kgf) * cfg.g
     yaw_torque = pair * (abs(rp.centre[1]) + tau_front)
 

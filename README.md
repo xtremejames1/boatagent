@@ -44,14 +44,21 @@ For each design (about 0.1 s each):
    - Front thrusters sit one ahead of each hull's bow, on the hull centreline,
      `front_thr_gap` clear of the stem. Each is angled 45° inside a faired pod
      aligned with the flow. The pod has an elliptical section, side windows so the
-     thruster can draw water sideways, and a crushable nose for head-on hits. It
+     thruster can draw water sideways, and a solid nose that takes head-on hits
+     instead of the thruster. The thrusters toe in: the forward end of each points
+     toward the centreline, so the jets run aft-outboard past the hulls. It
      covers the thruster mount and must print in one piece on a 250 mm bed.
    - Rear thrusters point fore-aft and have no pod. They sit wholly in the gap
      between the hulls, as far outboard as clearance allows.
    - Every thruster sits on a 3D-printed mount: a faired strut down from deck
      level plus a clamp. The front mounts add an arm forward from the stem. Mount
      mass is counted.
-   - The skid bottom is set `skid_margin` below the lowest thruster or pod point.
+   - Each hull has two small printed skid pads, one fore and one aft. Each is a
+     trapezoid in side view: a flat bottom `skid_margin` below the lowest thruster
+     or pod point, with 45° ends rising to the keel. Positions and flat length are
+     optimizer variables.
+   - The front mount is an arm along the deck from the bow stem to the pod's
+     pylon. The rear struts hang from a crossbeam between the hulls.
    - Placement runs twice, so the waterline includes the appendage masses.
 4. **Trim and float.**
    - The movable payload (batteries, electronics) slides within its deck range to
@@ -60,7 +67,7 @@ For each design (about 0.1 s each):
      integrals on the clipped mesh, waterplane by Green's theorem.
 5. **Checks** (constraint ≤ 0 means pass):
    - overall length (hull + front pods ≤ 1.52 m) and overall width
-   - front pod: one-piece fit on the 250 mm bed, crush-nose length, window area
+   - front pod: one-piece fit on the 250 mm bed, nose length, window area
    - inner-face spacing
    - GM_T and freeboard
    - trim
@@ -69,8 +76,8 @@ For each design (about 0.1 s each):
    - thruster clearance to the hulls and to each other
    - jet path: how far the front-thruster jet travels before hitting a hull,
      in both directions
-   - skid height (rail, not a fin)
-   - LCG inside the skid ends (so the boat rests stable on the ground)
+   - skid pad height
+   - LCG between the fore and aft pads (so the boat rests stable on the ground)
    - reserve buoyancy
 6. **Proxies.**
    - ITTC-57 friction with form factor and roughness allowance, weighted over
@@ -179,7 +186,7 @@ catamaran. Use it as the reference when validating the stage 3 CFD setup.
 ## Coordinates and units
 
 SI throughout. Body frame: x forward from the transom, y to port, z up, z = 0
-at the lowest keel point. Front thruster axes point forward-outboard at 45°.
+at the lowest keel point. Front thruster axes point forward-inboard at 45° (toe-in).
 `loa` is the hull length only; the front pods sit ahead of it.
 
 ## Placeholders to confirm
@@ -195,7 +202,7 @@ JSON passed with `--config`:
 | `skid_max_height` | 0.12 m | **the main design driver**, see below |
 | `thr_cover_min` | 0.05 m | water above the rear thruster / front pod top; verify ventilation in CFD |
 | `pod_window_ratio`, `pod_window_cd` | 1.0, 0.2 | side-window area per side ÷ thruster disk area; window drag |
-| `pod_crush_len_min`, `impact_speed` | 3 cm, 2 m/s | crush nose |
+| `pod_crush_len_min`, `impact_speed` | 3 cm, 2 m/s | load-taking nose length; impact energy estimate |
 | `lidar_z_above_deck`, `lidar_kg` | 0.60 m, 1.0 kg | sets KG |
 | `frame_*`, `payload_z_above_deck` | | mass and KG of the frame and electronics |
 | `wall_thickness`, `rib_vol_frac`, `mass_calibration` | 1.6 mm, 1.2 %, 1.0 | calibrate with a test print |

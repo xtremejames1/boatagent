@@ -1,5 +1,5 @@
-"""STL export of a design: front pod (with windows, thruster and pylon) and the
-whole boat (hulls, skids, pods, thrusters, struts) for viewing.
+"""STL export of a design: front pod (with windows, thruster, pylon and arm) and the
+whole boat (hulls, skid pads, pods, thrusters, struts, arms, rear crossbeam) for viewing.
 
 Viewing meshes only: the pod is its outer skin with the side windows cut out,
 so the thruster shows through. Body frame, metres.
@@ -96,15 +96,48 @@ def foil_mesh(s: Strut, n: int = 24) -> Mesh:
     return _to_world(m, R, [s.x, s.y, 0.0])
 
 
-def skid_mesh(skid, y: float) -> Mesh:
-    """Skid rail: rectangle-ish section from its flat bottom up to the keel line."""
-    xs, h, w = skid.xs, skid.heights, skid.width
-    zb = skid.z_bottom
-    n = len(xs)
-    ys = np.array([0, w / 2, w / 2, 0, -w / 2, -w / 2]) + y
-    Y = np.tile(ys, (n, 1))
-    Z = np.stack([np.full(n, zb), np.full(n, zb), zb + h, zb + h, zb + h, np.full(n, zb)], 1)
-    return loft(xs, Y, Z)
+def skid_meshes(d: Design, skid, y: float) -> list[Mesh]:
+    """Each pad: rectangular section from its sloped-end bottom up to the keel line."""
+    out = []
+    w = skid.width
+    for p in skid.pads:
+        xs, h = p.xs, np.maximum(p.heights, 1e-4)
+        n = len(xs)
+        top = keel_z(xs / d.loa, d)
+        bot = top - h
+        ys = np.array([0, w / 2, w / 2, 0, -w / 2, -w / 2]) + y
+        Z = np.stack([bot, bot, top, top, top, bot], 1)
+        out.append(loft(xs, np.tile(ys, (n, 1)), Z))
+    return out
+
+
+def box_mesh(p0, p1, w: float, h: float) -> Mesh:
+    """Rectangular beam from p0 to p1 (horizontal), w wide and h tall."""
+    p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
+    u = p1 - p0
+    L = float(np.linalg.norm(u))
+    ys = np.array([0, w / 2, w / 2, 0, -w / 2, -w / 2])
+    zs = np.array([-h / 2, -h / 2, h / 2, h / 2, h / 2, -h / 2])
+    m = loft(np.array([0.0, L]), np.tile(ys, (2, 1)), np.tile(zs, (2, 1)))
+    c, s_ = u[0] / L, u[1] / L
+    R = np.array([[c, -s_, 0], [s_, c, 0], [0, 0, 1]])
+    return _to_world(m, R, p0)
+
+
+def mount_meshes(d: Design, det) -> list[Mesh]:
+    """Front: arm along the deck from the bow stem to the pylon. Rear: a crossbeam
+    between the hulls at the rear struts (part of the frame)."""
+    out = []
+    deck, bw = d.depth, 0.03
+    for s in det.struts:
+        if s.name.startswith("front"):
+            out.append(box_mesh([d.loa - 0.04, s.y, deck - bw / 2], [s.x + s.chord / 2, s.y, deck - bw / 2],
+                                bw, bw))
+    rear = [s for s in det.struts if s.name == "rear_port"]
+    if rear:
+        yc = hull_centre_y(d)
+        out.append(box_mesh([rear[0].x, -yc, deck + bw / 2], [rear[0].x, yc, deck + bw / 2], bw, bw))
+    return out
 
 
 def build(d: Design, cfg: Config):
@@ -114,10 +147,12 @@ def build(d: Design, cfg: Config):
     th = {t.name: t for t in det.thrusters}
     st = {s.name: s for s in det.struts}
     pod = det.pods[0]
-    pod_parts = Mesh.merge(pod_mesh(pod), thruster_mesh(th["front_port"]), foil_mesh(st["front_port"]))
+    arm = [m for m in mount_meshes(d, det)[:1]]
+    pod_parts = Mesh.merge(pod_mesh(pod), thruster_mesh(th["front_port"]), foil_mesh(st["front_port"]), *arm)
     yc = hull_centre_y(d)
     parts = [catamaran_mesh(d, cfg.n_stations)]
-    parts += [skid_mesh(det.skid, yc), skid_mesh(det.skid, -yc)]
+    parts += skid_meshes(d, det.skid, yc) + skid_meshes(d, det.skid, -yc)
+    parts += mount_meshes(d, det)
     parts += [pod_mesh(p) for p in det.pods]
     parts += [thruster_mesh(t) for t in det.thrusters]
     parts += [foil_mesh(s) for s in det.struts]

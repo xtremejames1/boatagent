@@ -37,10 +37,11 @@ class Design:
     front_thr_cover: float = 0.06     # water above the top of the front pod at the design waterline (m)
     rear_thr_cover: float = 0.06      # water above the top of the rear thrusters at the design waterline (m)
 
-    # --- skid (replaceable printed rail under each hull) ---
+    # --- skid: two replaceable printed trapezoid pads under each hull ---
     skid_margin: float = 0.015       # skid bottom below lowest thruster/pod point (m)
-    skid_len_frac: float = 0.55      # skid length / LOA
-    skid_x_frac: float = 0.45        # skid centre, fraction of LOA from transom
+    skid_aft_x_frac: float = 0.25    # aft pad centre, fraction of LOA from transom
+    skid_fwd_x_frac: float = 0.70    # forward pad centre, fraction of LOA from transom
+    skid_pad_len: float = 0.08       # flat bottom length of each pad (m)
 
     # --- front pod (faired, impact-absorbing, around the front thruster) ---
     pod_wall: float = 0.003          # pod shell thickness (m)
@@ -76,8 +77,9 @@ BOUNDS: dict[str, tuple[float, float]] = {
     "front_thr_cover": (0.05, 0.15),
     "rear_thr_cover": (0.05, 0.15),
     "skid_margin": (0.010, 0.020),
-    "skid_len_frac": (0.30, 0.80),
-    "skid_x_frac": (0.30, 0.60),
+    "skid_aft_x_frac": (0.08, 0.45),
+    "skid_fwd_x_frac": (0.55, 0.90),
+    "skid_pad_len": (0.03, 0.15),
     "pod_wall": (0.0016, 0.006),
     "pod_nose_len": (0.03, 0.12),
     "pod_tail_len": (0.0, 0.06),
@@ -113,7 +115,8 @@ class Config:
     thr_radius: float = 0.050        # duct outer radius
     thr_force_kgf: float = 5.25      # forward thrust at 16 V
     thr_rev_force_kgf: float = 4.1   # reverse thrust at 16 V
-    front_thr_angle_deg: float = 45.0  # axis angle from +x; axis points forward-outboard
+    front_thr_angle_deg: float = 45.0  # axis angle from +x
+    front_thr_toe_in: bool = True    # axis points forward-inboard (jets run aft-outboard)
     pod_gap: float = 0.005           # gap between thruster and pod inner wall
     pod_window_ratio: float = 1.0    # side window area per side / thruster disk area
     pod_window_max_frac: float = 0.7  # windows may use at most this share of the bay side
@@ -136,6 +139,7 @@ class Config:
     skid_width: float = 0.020
     skid_min_height: float = 0.005
     skid_fill: float = 0.6           # skid printed fairly dense
+    skid_end_slope_deg: float = 45.0  # pad ends rise at this angle to meet the keel
     mass_calibration: float = 1.0    # measured / predicted printed mass, from a test print
     bed: tuple = (0.25, 0.25, 0.25)  # printer build volume (m), standard 250 mm bed
     joint_kg_per_m: float = 0.04     # flange/bond mass per metre of joint girth
@@ -152,7 +156,7 @@ class Config:
     clearance_min: float = 0.010     # thruster envelope to hull, and between thrusters
     jet_clear_min_D: float = 2.0     # free jet length before hitting a hull, in duct diameters
     skid_max_height: float = 0.12    # PLACEHOLDER: tallest acceptable rail. This limit drives the design.
-    skid_lcg_margin: float = 0.05    # LCG must sit this far inside the skid ends
+    skid_lcg_margin: float = 0.05    # LCG must sit this far inside the pad support span
     reserve_buoyancy_min: float = 1.0  # (enclosed - displaced) / displaced
 
     # --- resistance proxy ---

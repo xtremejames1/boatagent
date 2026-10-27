@@ -88,6 +88,8 @@ def test_evaluate_default_is_consistent():
     assert row["thr_cover_min"] == pytest.approx(Design().front_thr_cover, abs=2e-3)
     # skid bottom is below every thruster by at least the margin
     assert row["skid_bottom_z"] <= min(row["front_thr_z"], row["rear_thr_z"]) - 0.05
+    # two pads per hull; LCG between them
+    assert row["skid_lcg_margin"] > 0
     # slenderness definition
     disp = row["mass_total"] / (2 * cfg.rho)
     assert row["slenderness"] == pytest.approx(row["lwl"] / disp ** (1 / 3))
@@ -197,3 +199,32 @@ def test_export_meshes(tmp_path):
         assert V == pytest.approx(0.685 * s.tc * s.chord**2 * s.length, rel=0.05)
     paths = export(d, Config(), str(tmp_path / "x"))
     assert all((tmp_path / p.split("/")[-1]).stat().st_size > 84 for p in paths)
+
+
+def test_skid_pads_trapezoid():
+    from hullopt.layout import make_skid
+    d = Design()
+    cfg = Config()
+    sk = make_skid(d, cfg, lowest_other_z=-0.08)
+    assert len(sk.pads) == 2
+    aft, fwd = sk.pads
+    assert aft.xc < fwd.xc
+    for p in sk.pads:
+        # flat bottom: height equals keel - z_bottom over the flat
+        on = (p.xs >= p.flat_x0) & (p.xs <= p.flat_x1)
+        assert np.allclose(p.heights[on], keel_z(p.xs[on] / d.loa, d) - sk.z_bottom)
+        # top longer than the flat (sloped ends), heights never negative
+        assert p.top_length > p.flat and (p.heights >= 0).all()
+    assert sk.z_bottom == pytest.approx(-0.08 - d.skid_margin)
+    assert sk.x0 == pytest.approx(aft.flat_x0) and sk.x1 == pytest.approx(fwd.flat_x1)
+
+
+def test_front_toe_in():
+    d = Design()
+    row, det = evaluate(d, Config(), detail=True)
+    fp = next(t for t in det.thrusters if t.name == "front_port")
+    fs = next(t for t in det.thrusters if t.name == "front_stbd")
+    # forward ends closer together than aft ends
+    fwd_gap = (fp.centre + fp.axis * fp.length / 2)[1] - (fs.centre + fs.axis * fs.length / 2)[1]
+    aft_gap = (fp.centre - fp.axis * fp.length / 2)[1] - (fs.centre - fs.axis * fs.length / 2)[1]
+    assert fwd_gap < aft_gap

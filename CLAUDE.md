@@ -7,18 +7,21 @@ pipeline for a small holonomic autonomous catamaran (RoboBoat-scale).
 
 - **Configuration:** catamaran, holonomic.
 - **Thrusters:** 4 × Blue Robotics T200 (assume for now), all on 3D-printed mounts.
-  - Front pair: one in front of each hull's bow, angled ~45°, inside a faired pod
+  - Front pair: one in front of each hull's bow, angled ~45° toe-in (forward end
+    toward the centreline, jets aft-outboard), inside a faired pod
     that goes in front (aligned with the flow). The pod must survive a head-on hit,
     or absorb it and break off; it has side openings so the thruster can draw
     water from the side; it fits over the thruster mount and thruster and attaches
-    at the same hull interface point as the mount; it prints in one piece on a
+    at the same hull interface point as the mount (arm from the bow stem); it
+    need not crush, just take the load instead of the thruster; min 4 walls and
+    10 % infill; it prints in one piece on a
     standard 250 x 250 mm bed.
   - Rear pair: between the hulls, no pod. Only the front pair has pods.
   - Overall length ≤ 1.52 m includes the front pods (confirmed; hull `loa` is
     shorter).
 - **Grounding:** the boat must rest on the hulls, not the thrusters. Achieved with a
-  **separate, replaceable 3D-printed skid/rail** on each hull bottom that sits
-  below the lowest thruster point. The hull draft is therefore a free variable,
+  **separate, replaceable 3D-printed skid** under each hull: two small trapezoid
+  pads (fore and aft), flat bottoms below the lowest thruster point. The hull draft is therefore a free variable,
   not set by thruster clearance.
 - **Hull spacing:** 10–14 in measured between hull **inner faces**; wider is allowed.
 - **Length:** overall length ≤ 1.52 m (5 ft). Optimizer range ~1.2–1.52 m.
@@ -55,8 +58,8 @@ pipeline for a small holonomic autonomous catamaran (RoboBoat-scale).
 |---|---|
 | Demihull | length, beam, draft, section shape (bilge radius/deadrise), rocker, bow entry angle, transom width |
 | Layout | hull spacing (inner-face, ≥10 in), fore-aft thruster positions |
-| Skid | depth below lowest thruster (small margin, ~1–2 cm), length, fore-aft position. Low rounded rail, not a fin. |
-| Front pod | depth (cover), wall, crush-nose length, tail length, pylon chord/thickness. Window size and shape, and the pylon alignment, tested as discrete cases at stage 3. |
+| Skid | two trapezoid pads per hull (fore/aft): depth below lowest thruster (small margin, ~1–2 cm), flat length, fore-aft positions. |
+| Front pod | depth (cover), wall, nose length, tail length, pylon chord/thickness. Window size and shape, and the pylon alignment, tested as discrete cases at stage 3. |
 
 Hard constraints: skid bottom below lowest thruster, displacement ≥ mass, GM_T ≥ X,
 freeboard ≥ Y, LOA ≤ 1.52 m, overall width limit, thrusters submerged enough to
@@ -106,11 +109,16 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
 
 - Front pod model (`Pod` in `hullopt/layout.py`): elliptical section aligned with +x,
   sized around the 45° T200 (+5 mm gap + wall); tail fairing, thruster bay with side
-  windows (area per side = `pod_window_ratio` x thruster disk), crushable nose
+  windows (area per side = `pod_window_ratio` x thruster disk), load-taking nose
   (`pod_nose_len`, infill `pod_crush_fill`). Flooded. Drag: Hoerner streamlined-body
   formula + window drag (`pod_window_cd`, placeholder). Constraints: one-piece fit on
   `pod_bed`, nose ≥ `pod_crush_len_min`, windows ≤ `pod_window_max_frac` of bay side.
-  Reports impact energy at `impact_speed` and average crush force over the nose.
+  Reports impact energy at `impact_speed` and average force over the nose length.
+- Thruster height: optimizer already drives cover to `thr_cover_min` (5 cm,
+  placeholder) because deeper thrusters need taller, heavier skid pads. Lowering
+  that limit is the only way higher; check ventilation in CFD first.
+- Viewing STLs: `python -m hullopt.export`; stage 2 writes `_pod.stl` and
+  `_assembly.stl` for each finalist.
 
 ## Next step
 

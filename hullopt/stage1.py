@@ -139,7 +139,8 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         # ---- thrusters (front: in pods ahead of the bows; rear: between the hulls)
         fz = z_wl - d.front_thr_cover - pod_half_h
         rz = z_wl - d.rear_thr_cover - cfg.thr_radius
-        fp, pp = place_front(d, cfg, fz, psi)
+        # port heading: toe-in points the axis forward-inboard (toward -y)
+        fp, pp = place_front(d, cfg, fz, -psi if cfg.front_thr_toe_in else psi)
         pods = [pp, mirror_pod(pp)]
         rp = place_rear(d, d.rear_thr_x_frac * L, rz, cfg.thr_radius, cfg.thr_length, cfg.clearance_min)
         fs, rs = mirror(fp, "front_stbd"), mirror(rp, "rear_stbd")
@@ -264,15 +265,15 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
     clearance = min(hull_clear, pair_f, pair_r, d.front_thr_gap)
 
     jr = cfg.thr_radius
-    jet_aft_in = jet_free_length(fp, -fp.axis, d, jr)
-    jet_fwd_out = jet_free_length(fp, fp.axis, d, jr)
+    jet_aft = jet_free_length(fp, -fp.axis, d, jr)   # aft-outboard with toe-in
+    jet_fwd = jet_free_length(fp, fp.axis, d, jr)
     jet_rear_fwd = jet_free_length(rp, rp.axis, d, jr)
     start = fp.centre - fp.axis * fp.length / 2
     fjet_to_rear = min(point_to_ray(t.centre, start, -fp.axis) for t in (rp, rs)) - rp.radius - jr
     rstart = rp.centre + rp.axis * rp.length / 2
     rjet_to_front = min(point_to_ray(p_.centre, rstart, rp.axis) for p_ in pods) - pp.half_w - jr
     jet_min = cfg.jet_clear_min_D * 2 * cfg.thr_radius
-    jet_len = min(jet_aft_in, jet_fwd_out)
+    jet_len = min(jet_aft, jet_fwd)
 
     env = np.vstack([b.envelope_points() for b in bodies])
     x_lo, x_hi = min(0.0, env[:, 0].min()), max(L, env[:, 0].max())
@@ -343,8 +344,8 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         "front_pair_gap": pair_f, "rear_pair_gap": pair_r,
         "front_thr_y": fp.centre[1], "rear_thr_y": rp.centre[1],
         "front_thr_z": fp.centre[2], "rear_thr_z": rp.centre[2],
-        "jet_front_aft_inboard": jet_aft_in,
-        "jet_front_fwd_outboard": jet_fwd_out,
+        "jet_front_aft": jet_aft,
+        "jet_front_fwd": jet_fwd,
         "jet_rear_fwd": jet_rear_fwd,
         "jet_front_to_rear_thr": fjet_to_rear,
         "jet_rear_to_front_thr": rjet_to_front,
