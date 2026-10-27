@@ -138,19 +138,24 @@ catamaran. Use it as the reference when validating the stage 3 CFD setup.
   values: 2.14e-3 at Fr 0.3 and 4.52e-3 at Fr 0.5. Michell theory overpredicts
   the measured hump at Fr 0.5 by about 2×, which is a known limitation.
 
-### What stage 2 shows
+### What stage 2 shows (front thrusters ahead of the bows)
 
-- **Appendages dominate.** At 0.5–1.5 m/s, about 17 N of the 21 N weighted
-  resistance comes from the thruster pods, shrouds, struts and skids. The hull
-  contributes only 3.5–5.5 N. The front pods, set at 45° to the flow, are most
-  of it. Mount and shroud design matter more than hull shape for total drag.
-  The pod Cd values are rough estimates, so stage 3 should measure them.
-- **Among hulls, length wins.** 1.45–1.5 m hulls (slenderness above 6) have
-  about 30 % less hull resistance than 1.2–1.3 m hulls. They cost about 1.5 kg
-  more (≈6 %). Wave drag rises steeply from about 1.2–1.3 m/s, and earlier for
-  short hulls.
-- **All finalists are close on total drag** (20.6–22.1 N weighted). Sway top
-  speed is 0.62–0.70 m/s and yaw rate 140–200 °/s for all of them.
+- **The front shrouds use up hull length.** A 45° shrouded T200 takes about 18 cm
+  ahead of the bow. With 1.52 m overall, hulls top out near 1.32 m (was 1.50 m
+  with the thrusters beside the bows). Slenderness drops from about 6.3 to 5.6,
+  and the best weighted hull resistance rises from 3.5 N to 4.3 N.
+- **Appendages still dominate.** About 17 of the 21 N weighted resistance at
+  0.5–1.5 m/s comes from the mounts, shrouds, pods and skids, mostly the 45°
+  front pods. The pod Cd values are rough estimates, so stage 3 should measure
+  them.
+- **Finalists span a real tradeoff.** The 1.3 m hulls have the least drag
+  (21.3–21.6 N weighted). The 1.0–1.1 m hulls are about 1 kg lighter, sway
+  faster (0.72–0.76 m/s against 0.65–0.71 m/s) and turn faster, but carry about
+  10 % more drag. Their wave hump also starts at about 1.1 m/s, inside the
+  priority band.
+- **Rear jets pass close to the front shrouds.** On finalist 1 the forward jet
+  of each rear thruster passes about 1 cm from the front shroud. This is
+  reported (`jet_rear_to_front_thr`) but doesn't fail a design; check it in CFD.
 
 ## Coordinates and units
 
