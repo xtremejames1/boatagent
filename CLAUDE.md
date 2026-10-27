@@ -10,7 +10,7 @@ pipeline for a small holonomic autonomous catamaran (RoboBoat-scale).
   - Front pair: one in front of each hull's bow, angled ~45°, inside a shroud that
     protects it from impacts and must be reasonably hydrodynamic.
   - Rear pair: between the hulls, unshrouded. Only the front pair has shrouds.
-  - Overall length ≤ 1.52 m includes the front shrouds (assumption; hull `loa` is
+  - Overall length ≤ 1.52 m includes the front shrouds (confirmed; hull `loa` is
     shorter).
 - **Grounding:** the boat must rest on the hulls, not the thrusters. Achieved with a
   **separate, replaceable 3D-printed skid/rail** on each hull bottom that sits
@@ -98,6 +98,10 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
   1.3 m hulls have the least drag, 1.0–1.1 m hulls are lighter and more agile.
 - Mount layout (front ahead of bows, rear between hulls) is set; mount details will
   still change. Keep thruster/shroud/mount geometry parametric (`hullopt/layout.py`).
+
+- Shroud model is a placeholder: open straight tube on the thruster axis (5 mm gap,
+  wall = `shroud_guard`, length = T200 + 1 cm) on a faired strut, drag from a pod Cd
+  guess. Duct section, lips and grille are not modelled yet.
 
 ## Next step
 
