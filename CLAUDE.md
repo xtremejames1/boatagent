@@ -104,10 +104,9 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
   yaw-rate proxy. Output `results/stage2/finalists.csv` (8 designs, STLs in
   `results/stage2/designs/`).
 - Findings: skid height binds in stage 1 (`skid_max_height` = 0.12 m placeholder).
-  Faired front pods cut best weighted R_T from 21.3 N (45° tube) to 14.0 N;
-  appendages are still ~2/3 of it (pod windows and bare rear thrusters, both
-  placeholder Cd). With pods ahead of the bows, hulls top out near 1.27 m
-  (slenderness ~5.4). No impact-strength model yet: pod wall goes to the minimum.
+  Best weighted R_T 15.5 N (hull 4.7, appendages 10.9: pod windows, bare rear
+  thrusters, bow members — all placeholder Cd). With pods ahead of the bows,
+  hulls top out near 1.28 m (slenderness ~5.5). No impact-strength model yet: pod wall goes to the minimum.
 - Mount layout (front ahead of bows, rear between hulls) is set; mount details will
   still change. Keep thruster/pod/mount geometry parametric (`hullopt/layout.py`).
 

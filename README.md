@@ -117,7 +117,7 @@ speed:
 |---|---|
 | wave | Michell thin-ship integral with demihull interference, `2[1 + cos(k0 λ√(λ²−1) s)]`. Exact per-panel integration of the hull offsets at the floating waterline (`hullopt/michell.py`). Scaled by `wave_factor` (1.0 until stage 3 calibrates it). |
 | viscous | ITTC-57 × catamaran form factor `1+βk = 3.03 (L/∇^⅓)^−0.4` (Couser et al. 1997) + roughness ΔCf |
-| appendages | struts and pylons (foil friction, Hoerner thickness factor), skids, front pods (Hoerner streamlined-body drag + side-window drag `pod_window_cd` 0.2), bare rear thrusters (`pod_cd_rear` 0.3) |
+| appendages | rear struts (foil friction, Hoerner thickness factor), front bow members (friction + pressure on their 12 mm face, `member_cd` 1.0), skids, front pods (Hoerner streamlined-body drag + side-window drag `pod_window_cd` 0.2), bare rear thrusters (`pod_cd_rear` 0.3) |
 | transom | Holtrop (1984) wet-transom term |
 
 It also computes:
@@ -137,7 +137,7 @@ code finds the Pareto front on (weighted R_T, total mass, sway drag) and picks
 `finalists.csv`, `curves.csv` (resistance components from 0.3 to 2.5 m/s),
 `resistance.png`, and `designs/finalist_*.json` plus STLs. Each finalist gets
 `_catamaran.stl` (hulls only, for CFD), `_pod.stl` (front pod with the windows
-cut out, T200 and pylon) and `_assembly.stl` (whole boat). GitHub shows STLs in
+cut out, T200 and its two bow members) and `_assembly.stl` (whole boat). GitHub shows STLs in
 3D. `python -m hullopt.export --design d.json --out name` writes them for any
 design.
 
@@ -157,34 +157,30 @@ catamaran. Use it as the reference when validating the stage 3 CFD setup.
   values: 2.14e-3 at Fr 0.3 and 4.52e-3 at Fr 0.5. Michell theory overpredicts
   the measured hump at Fr 0.5 by about 2×, which is a known limitation.
 
-### What stage 2 shows (toe-in pods, fore/aft skid pads)
+### What stage 2 shows (bow-member brackets, diagonal rear struts, skid pads)
 
-- **Best weighted resistance at 0.5–1.5 m/s is 13.9 N.** Of that, 4.5 N is the
-  hull and 9.4 N the appendages. At 2 m/s the thrusters have 3.4× the thrust
-  needed. The 1.26 m hulls (slenderness about 5.4) have the least drag. The
-  1.0–1.2 m hulls are lighter and turn faster but carry 7–15 % more drag.
-- **Toe-in helps turning and clears the jets.** The front jets now run
-  aft-outboard and clear every hull in both directions. The top turn-in-place
-  rate rose from about 180 to 240 °/s, because both front thrusters' lines of
-  action now sit further from G.
-- **Skid pads are small.** Finalist 1 has a 3 cm flat with 45° ends, pads at 35 %
-  and 60 % of hull length, 7.9 cm tall at most, and 0.46 kg for all four pads.
+- **Best weighted resistance at 0.5–1.5 m/s is 15.5 N.** Of that, 4.7 N is the
+  hull and 10.9 N the appendages. At 2 m/s the thrusters have 3.0× the thrust
+  needed. The 1.28 m hulls (slenderness about 5.5) have the least drag. The
+  1.0–1.1 m hulls are about 0.5 kg lighter and turn faster but carry 10–25 %
+  more drag.
+- **Mounts.** Each front pod hangs from two 48 × 12 mm members off the bow stem;
+  each rear thruster from one diagonal strut into its hull side. All four mounts
+  together weigh about 0.37 kg.
+- **The bow members cost about 1.5 N.** At 1 m/s the four front members add
+  about 1.4 N, mostly pressure on their 12 mm faces at `member_cd` 1.0. That is
+  conservative, because they meet the flow at an angle. The rear struts face the
+  flow as foils and add under 0.1 N.
+- **Toe-in** keeps the front jets clear of every hull. The top turn-in-place rate
+  is about 230 °/s.
+- **Skid pads** on finalist 1 are 7.9 cm tall at most.
 - **Thruster height is at its limit.** The optimizer already puts the thrusters
-  as high as `thr_cover_min` allows, because deeper thrusters need taller, heavier
-  pads. Each centimetre less cover makes the pads about 1 cm shorter. On
-  finalist 1: 5 cm cover gives 7.2 cm pads, and 3 cm cover gives 5.1 cm pads.
-  Check ventilation (stage 3) before lowering it.
-- **What's left of the appendage drag**, at 1 m/s:
-
-  | source | drag |
-  |---|---|
-  | pod side windows | ≈3 N |
-  | bare rear thrusters | ≈3 N |
-  | pod bodies | ≈1.8 N |
-
-  The window and rear-thruster numbers rest on guessed drag coefficients, so stage
-  3 should measure them.
-- **The rear jets still graze the front pods** (`jet_rear_to_front_thr` ≈ −2 cm).
+  as high as `thr_cover_min` (5 cm) allows. Each centimetre less cover makes the
+  pads about 1 cm shorter; check ventilation in stage 3 first.
+- **Guessed drag coefficients.** The pod window drag, bare rear thruster drag
+  and bow member drag all rest on guessed coefficients; stage 3 should measure
+  them.
+- **The rear jets still graze the front pods** (`jet_rear_to_front_thr` < 0).
   This is reported but doesn't fail a design.
 
 ## Coordinates and units
