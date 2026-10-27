@@ -108,6 +108,7 @@ class Config:
     thr_length: float = 0.113
     thr_radius: float = 0.050        # duct outer radius
     thr_force_kgf: float = 5.25      # forward thrust at 16 V
+    thr_rev_force_kgf: float = 4.1   # reverse thrust at 16 V
     front_thr_angle_deg: float = 45.0  # axis angle from +x; axis points forward-outboard
     shroud_gap: float = 0.005        # radial gap thruster -> shroud
     rear_strut_chord: float = 0.08

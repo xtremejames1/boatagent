@@ -3,8 +3,8 @@
 Multi-fidelity hull optimization for a small holonomic autonomous catamaran
 (RoboBoat scale, 4 × T200, 3D-printed hulls). See `CLAUDE.md` for the design brief.
 
-Status: **stage 1 (algebraic screening) is done.** Stages 2 (Michell wave
-resistance) and 3 (OpenFOAM) are next.
+Status: **stages 1 (algebraic screening) and 2 (semi-empirical resistance) are
+done.** Stage 3 (OpenFOAM) is next, on the 8 finalists in `results/stage2/`.
 
 ## Quick start
 
@@ -12,6 +12,7 @@ resistance) and 3 (OpenFOAM) are next.
 pip install -r requirements.txt
 python -m hullopt.stage1 eval --gz                # one design, every metric + GZ curve
 python -m hullopt.stage1 run --trials 3000        # optimizer -> results/stage1/
+python -m hullopt.stage2 run                      # score candidates -> results/stage2/
 python -m pytest -q                               # tests
 ```
 
@@ -85,6 +86,66 @@ drag until stage 2 computes it. `--sampler lhs` runs without Optuna.
 | `designs/*.json`, `*.stl` | min-mass, min-drag, max-slenderness and knee designs |
 | `config.json` | the config used |
 
+## What stage 2 does
+
+`python -m hullopt.stage2 run` reads `results/stage1/stage2_candidates.csv`. For
+each design it reruns stage 1 to get sinkage and trim, then computes, at each
+speed:
+
+| term | model |
+|---|---|
+| wave | Michell thin-ship integral with demihull interference, `2[1 + cos(k0 λ√(λ²−1) s)]`. Exact per-panel integration of the hull offsets at the floating waterline (`hullopt/michell.py`). Scaled by `wave_factor` (1.0 until stage 3 calibrates it). |
+| viscous | ITTC-57 × catamaran form factor `1+βk = 3.03 (L/∇^⅓)^−0.4` (Couser et al. 1997) + roughness ΔCf |
+| appendages | struts (foil friction, Hoerner thickness factor), shroud rings, skids, thruster-pod pressure drag (`pod_cd_front` 0.6 at 45°, `pod_cd_rear` 0.3) |
+| transom | Holtrop (1984) wet-transom term |
+
+It also computes:
+
+- **Sway:** crossflow drag of the lateral profile. Cd runs from 1.2 for a hard
+  chine to 0.7 for a full bilge radius, and the leeward hull takes 0.6 of the
+  load. Appendages are added. The output is a top sway speed on the front
+  thrusters' lateral thrust.
+- **Yaw:** the top turn-in-place rate. Full thrust (forward on one side, reverse on
+  the other) is balanced against crossflow yaw damping `∫ Cd h(x) |x−x_G|³ dx`
+  and hull friction. Deep lateral area far aft costs yaw rate.
+- **Top speed:** the margin between full surge thrust and R_T at 2 m/s.
+
+The score is weighted R_T over 0.5–1.5 m/s (the 2 m/s weight is dropped). The
+code finds the Pareto front on (weighted R_T, total mass, sway drag) and picks
+8 finalists by rank and crowding. Outputs: `all.csv`, `pareto.csv`,
+`finalists.csv`, `curves.csv` (resistance components from 0.3 to 2.5 m/s),
+`resistance.png`, and `designs/finalist_*.json` and `.stl`.
+
+`python -m hullopt.stage2 wigley` prints Michell Cw for the Wigley hull, mono and
+catamaran. Use it as the reference when validating the stage 3 CFD setup.
+`python -m hullopt.stage2 eval --design d.json` prints one design's breakdown.
+
+### Validation in the tests
+
+- The integral matches a closed-form answer for a parabolic strut to better
+  than 0.2 %.
+- R scales exactly as beam² (thin-ship) and as L³ at a fixed Froude number.
+- At zero spacing the catamaran equals one hull of double beam; at wide spacing
+  it tends to two separate hulls.
+- Results don't depend on the integration cutoff.
+- The Wigley hull gives the known wetted area (0.1488 L²) and regression Cw
+  values: 2.14e-3 at Fr 0.3 and 4.52e-3 at Fr 0.5. Michell theory overpredicts
+  the measured hump at Fr 0.5 by about 2×, which is a known limitation.
+
+### What stage 2 shows
+
+- **Appendages dominate.** At 0.5–1.5 m/s, about 17 N of the 21 N weighted
+  resistance comes from the thruster pods, shrouds, struts and skids. The hull
+  contributes only 3.5–5.5 N. The front pods, set at 45° to the flow, are most
+  of it. Mount and shroud design matter more than hull shape for total drag.
+  The pod Cd values are rough estimates, so stage 3 should measure them.
+- **Among hulls, length wins.** 1.45–1.5 m hulls (slenderness above 6) have
+  about 30 % less hull resistance than 1.2–1.3 m hulls. They cost about 1.5 kg
+  more (≈6 %). Wave drag rises steeply from about 1.2–1.3 m/s, and earlier for
+  short hulls.
+- **All finalists are close on total drag** (20.6–22.1 N weighted). Sway top
+  speed is 0.62–0.70 m/s and yaw rate 140–200 °/s for all of them.
+
 ## Coordinates and units
 
 SI throughout. Body frame: x forward from the transom, y to port, z up, z = 0
@@ -126,5 +187,7 @@ hullopt/hydrostatics.py  clipped-mesh hydrostatics, equilibrium, GZ
 hullopt/mass.py          printed mass, print-bed segmentation, mass budget
 hullopt/layout.py        thrusters, shrouds, struts, skids, clearance and jet checks
 hullopt/stage1.py        evaluation, NSGA-II driver, candidate selection, CLI
+hullopt/michell.py       Michell wave resistance (mono / catamaran), Wigley offsets
+hullopt/stage2.py        resistance build-up, sway, yaw, finalist selection, CLI
 tests/                   analytic box checks, mesh checks, end-to-end checks
 ```

@@ -190,6 +190,22 @@ def halfbreadth_at(x, z, d: Design) -> np.ndarray:
     return out
 
 
+def offsets_grid(xs, zs, d: Design) -> np.ndarray:
+    """Half-breadth on a station grid: xs (nx,) and body heights zs (nx, nz).
+
+    Zero below the keel, clipped to the deck above it.
+    """
+    xs = np.asarray(xs, float)
+    zs = np.asarray(zs, float)
+    xi = np.clip(xs / d.loa, 0, 1)
+    Y, Z = half_section(halfbeam(xi, d), keel_z(xi, d), d.depth, d.deadrise_deg, d.bilge_frac)
+    Y, Z = Y[:, : N_EDGE + 1], Z[:, : N_EDGE + 1]
+    out = np.empty(zs.shape)
+    for i in range(len(xs)):
+        out[i] = np.interp(np.minimum(zs[i], d.depth), Z[i], Y[i], left=0.0)
+    return out
+
+
 def write_stl(path: str, tri: np.ndarray, name: str = "hull") -> None:
     """Binary STL."""
     tri = np.asarray(tri, dtype=np.float32)

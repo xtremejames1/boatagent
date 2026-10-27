@@ -76,6 +76,9 @@ class Detail:
     thrusters: list
     skid: object
     budget: MassBudget
+    struts: list
+    z_wl: float           # body z of the design waterline (level float)
+    ring_wet: float       # wetted area of one front shroud ring
 
 
 def _failed(d: Design, reason: str) -> dict:
@@ -336,7 +339,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         **c,
     })
     if detail:
-        return row, Detail(d, tri, pose, thrusters, skid, bud)
+        return row, Detail(d, tri, pose, thrusters, skid, bud, struts, z_wl, ring_wet)
     return row
 
 

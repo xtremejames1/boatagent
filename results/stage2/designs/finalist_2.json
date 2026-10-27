@@ -1,0 +1,23 @@
+{
+  "loa": 1.46671,
+  "beam": 0.150617,
+  "depth": 0.197291,
+  "deadrise_deg": 21.5138,
+  "bilge_frac": 0.945302,
+  "rocker_fwd": 0.0670356,
+  "rocker_aft": 0.036126,
+  "entry_half_angle_deg": 11.5417,
+  "transom_frac": 0.302089,
+  "xmax_frac": 0.37992,
+  "spacing_inner": 0.36851,
+  "front_thr_x_frac": 0.949601,
+  "rear_thr_x_frac": 0.0817356,
+  "front_thr_cover": 0.0517041,
+  "rear_thr_cover": 0.0620197,
+  "skid_margin": 0.0129614,
+  "skid_len_frac": 0.312289,
+  "skid_x_frac": 0.339479,
+  "shroud_guard": 0.00430418,
+  "shroud_chord": 0.0876977,
+  "shroud_tc": 0.14233
+}

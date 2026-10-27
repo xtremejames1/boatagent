@@ -86,10 +86,19 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
 - Stage 1 done: geometry, mesh hydrostatics + free trim, mass model, print
   segmentation, clearance/jet/skid checks, friction proxy, NSGA-II (Optuna).
   Output `results/stage1/stage2_candidates.csv`.
-- Finding: skid height is the binding constraint (shrouded T200 + cover sits ~19 cm
-  below WL; slender hulls draw ~8–11 cm). `skid_max_height` = 0.12 m placeholder.
+- Stage 2 done (`hullopt/michell.py`, `hullopt/stage2.py`): Michell + interference,
+  ITTC-57 with Couser form factor, appendage and transom drag, sway crossflow,
+  yaw-rate proxy. Output `results/stage2/finalists.csv` (8 designs, STLs in
+  `results/stage2/designs/`).
+- Findings: skid height binds in stage 1 (`skid_max_height` = 0.12 m placeholder).
+  Appendages (mostly the 45° front pods) are ~80 % of weighted resistance; long
+  hulls (1.45–1.5 m) have ~30 % less hull resistance than short ones.
+- Thruster mounts are provisional; the mount design will change and may reshape
+  the hull layout. Keep thruster/shroud geometry parametric.
 
 ## Next step
 
-Write stage 2: Michell thin-ship wave resistance with demihull interference,
-reading `stage2_candidates.csv` and reusing `hullopt.geometry` offsets.
+Stage 3: OpenFOAM interFoam. Validate on a Wigley catamaran first (reference Michell
+values from `python -m hullopt.stage2 wigley`), mesh independence study, then the
+finalists: free sinkage/trim surge cases, sway cases, actuator-disk thrusters,
+shroud fairing cases. Use CFD to calibrate `wave_factor` and pod Cd values.
