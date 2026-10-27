@@ -21,6 +21,7 @@
   "thr_force_kgf": 5.25,
   "thr_rev_force_kgf": 4.1,
   "front_thr_angle_deg": 45.0,
+  "front_thr_toe_in": true,
   "pod_gap": 0.005,
   "pod_window_ratio": 1.0,
   "pod_window_max_frac": 0.7,
@@ -45,6 +46,7 @@
   "skid_width": 0.02,
   "skid_min_height": 0.005,
   "skid_fill": 0.6,
+  "skid_end_slope_deg": 45.0,
   "mass_calibration": 1.0,
   "bed": [
     0.25,

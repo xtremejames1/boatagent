@@ -153,11 +153,23 @@ catamaran. Use it as the reference when validating the stage 3 CFD setup.
   values: 2.14e-3 at Fr 0.3 and 4.52e-3 at Fr 0.5. Michell theory overpredicts
   the measured hump at Fr 0.5 by about 2×, which is a known limitation.
 
-### What stage 2 shows (faired front pods)
+### What stage 2 shows (toe-in pods, fore/aft skid pads)
 
-- **The faired pod cuts drag by about a third.** The best weighted resistance at
-  0.5–1.5 m/s fell from 21.3 N (open tube at 45°) to 14.0 N. Appendages fell from
-  about 17 N to about 9.5 N. Thrust margin at 2 m/s rose from 2.2× to 3.4×.
+- **Best weighted resistance at 0.5–1.5 m/s is 13.9 N.** Of that, 4.5 N is the
+  hull and 9.4 N the appendages. At 2 m/s the thrusters have 3.4× the thrust
+  needed. The 1.26 m hulls (slenderness about 5.4) have the least drag. The
+  1.0–1.2 m hulls are lighter and turn faster but carry 7–15 % more drag.
+- **Toe-in helps turning and clears the jets.** The front jets now run
+  aft-outboard and clear every hull in both directions. The top turn-in-place
+  rate rose from about 180 to 240 °/s, because both front thrusters' lines of
+  action now sit further from G.
+- **Skid pads are small.** Finalist 1 has a 3 cm flat with 45° ends, pads at 35 %
+  and 60 % of hull length, 7.9 cm tall at most, and 0.46 kg for all four pads.
+- **Thruster height is at its limit.** The optimizer already puts the thrusters
+  as high as `thr_cover_min` allows, because deeper thrusters need taller, heavier
+  pads. Each centimetre less cover makes the pads about 1 cm shorter. On
+  finalist 1: 5 cm cover gives 7.2 cm pads, and 3 cm cover gives 5.1 cm pads.
+  Check ventilation (stage 3) before lowering it.
 - **What's left of the appendage drag**, at 1 m/s:
 
   | source | drag |
@@ -165,23 +177,11 @@ catamaran. Use it as the reference when validating the stage 3 CFD setup.
   | pod side windows | ≈3 N |
   | bare rear thrusters | ≈3 N |
   | pod bodies | ≈1.8 N |
-  | skids | ≈1.1 N |
 
   The window and rear-thruster numbers rest on guessed drag coefficients, so stage
   3 should measure them.
-- **The pod uses more length.** Each pod is about 21 × 16 × 11 cm and about
-  0.17 kg, and fits the 250 mm bed (84 % of the bed's length). Hulls now top
-  out near 1.27 m, with slenderness about 5.4.
-- **Head-on impact.** Stopping the boat from 2 m/s means absorbing about 52 J.
-  A 4 cm crush nose would need about 1.3 kN of average crush force. The pod wall
-  goes to the 1.6 mm minimum because nothing models impact strength yet. Set
-  `pod_wall` and `pod_crush_len_min` from test prints.
-- **The rear jets graze the front pods.** The forward jet of each rear thruster
-  overlaps the front pod's outline by about 3 cm (`jet_rear_to_front_thr` < 0).
-  This is reported but doesn't fail a design; check it in CFD.
-- **Finalists:** five 1.24–1.27 m hulls with the least drag (14.0–14.4 N), and
-  three 1.0 m hulls that are about 0.6 kg lighter and turn faster but carry about
-  13 % more drag.
+- **The rear jets still graze the front pods** (`jet_rear_to_front_thr` ≈ −2 cm).
+  This is reported but doesn't fail a design.
 
 ## Coordinates and units
 
