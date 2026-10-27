@@ -175,3 +175,25 @@ def test_thruster_layout_front_ahead_rear_between():
 def test_pod_too_long_for_bed_is_flagged():
     row = evaluate(Design(pod_nose_len=0.12, pod_tail_len=0.06))
     assert row["c_pod_print"] > 0
+
+
+def test_export_meshes(tmp_path):
+    from hullopt.export import build, export, foil_mesh, pod_mesh, thruster_mesh
+    d = Design()
+    row, det = evaluate(d, Config(), detail=True)
+    pod = det.pods[0]
+    # closed skin volume is close to the elliptic-cylinder bound, and below it
+    V, _ = volume_props(pod_mesh(pod, windows=False).triangles)
+    box = np.pi * pod.half_w * pod.half_h * pod.length
+    assert 0.6 * box < V < box
+    # windows remove faces only from the sides
+    assert len(pod_mesh(pod).faces) < len(pod_mesh(pod, windows=False).faces)
+    for t in det.thrusters:
+        V, c = volume_props(thruster_mesh(t).triangles)
+        assert V == pytest.approx(np.pi * t.radius**2 * t.length, rel=0.02)
+        assert c == pytest.approx(t.centre, abs=1e-6)
+    for s in det.struts:
+        V, _ = volume_props(foil_mesh(s).triangles)
+        assert V == pytest.approx(0.685 * s.tc * s.chord**2 * s.length, rel=0.05)
+    paths = export(d, Config(), str(tmp_path / "x"))
+    assert all((tmp_path / p.split("/")[-1]).stat().st_size > 84 for p in paths)

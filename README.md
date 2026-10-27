@@ -124,7 +124,11 @@ The score is weighted R_T over 0.5–1.5 m/s (the 2 m/s weight is dropped). The
 code finds the Pareto front on (weighted R_T, total mass, sway drag) and picks
 8 finalists by rank and crowding. Outputs: `all.csv`, `pareto.csv`,
 `finalists.csv`, `curves.csv` (resistance components from 0.3 to 2.5 m/s),
-`resistance.png`, and `designs/finalist_*.json` and `.stl`.
+`resistance.png`, and `designs/finalist_*.json` plus STLs. Each finalist gets
+`_catamaran.stl` (hulls only, for CFD), `_pod.stl` (front pod with the windows
+cut out, T200 and pylon) and `_assembly.stl` (whole boat). GitHub shows STLs in
+3D. `python -m hullopt.export --design d.json --out name` writes them for any
+design.
 
 `python -m hullopt.stage2 wigley` prints Michell Cw for the Wigley hull, mono and
 catamaran. Use it as the reference when validating the stage 3 CFD setup.
@@ -218,5 +222,6 @@ hullopt/layout.py        thrusters, front pods, mounts, skids, clearance and jet
 hullopt/stage1.py        evaluation, NSGA-II driver, candidate selection, CLI
 hullopt/michell.py       Michell wave resistance (mono / catamaran), Wigley offsets
 hullopt/stage2.py        resistance build-up, sway, yaw, finalist selection, CLI
+hullopt/export.py        viewing STLs: front pod and full assembly
 tests/                   analytic box checks, mesh checks, end-to-end checks
 ```

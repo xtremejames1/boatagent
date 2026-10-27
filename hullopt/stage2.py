@@ -40,6 +40,7 @@ from dataclasses import asdict, dataclass, fields, replace
 
 import numpy as np
 
+from .export import export as export_stl
 from .geometry import catamaran_mesh, hull_centre_y, keel_z, offsets_grid, write_stl
 from .michell import michell, wigley_offsets, wigley_wetted_area
 from .params import Config, Design
@@ -372,6 +373,7 @@ def cmd_run(a):
         with open(os.path.join(dd, f"{name}.json"), "w") as f:
             json.dump(d.to_dict(), f, indent=2)
         write_stl(os.path.join(dd, f"{name}_catamaran.stl"), catamaran_mesh(d, cfg.n_stations).triangles, name)
+        export_stl(d, cfg, os.path.join(dd, name))   # _pod.stl and _assembly.stl for viewing
         curve_rows += curves(d, cfg, c2, name)
     write_csv(os.path.join(a.out, "finalists.csv"), finals)
     write_csv(os.path.join(a.out, "curves.csv"), curve_rows)
