@@ -1,0 +1,3 @@
+numpy>=1.26
+optuna>=3.0   # NSGA-II; without it stage 1 falls back to Latin hypercube sampling
+pytest        # tests only

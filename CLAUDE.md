@@ -73,6 +73,23 @@ avoid ventilation.
 
 Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
 
+## Code
+
+- `hullopt/` package; stage 1 is `python -m hullopt.stage1` (see README.md).
+- Body frame: x forward from the transom, y to port, z up, z=0 at lowest keel. SI units.
+- Fixed inputs and placeholders (X, Y, width limit, skid height cap, KG items) are in
+  `hullopt/params.py` `Config`; optimizer variables and bounds are `Design` / `BOUNDS`.
+- Run `python -m pytest -q` after changes.
+
+## Status
+
+- Stage 1 done: geometry, mesh hydrostatics + free trim, mass model, print
+  segmentation, clearance/jet/skid checks, friction proxy, NSGA-II (Optuna).
+  Output `results/stage1/stage2_candidates.csv`.
+- Finding: skid height is the binding constraint (shrouded T200 + cover sits ~19 cm
+  below WL; slender hulls draw ~8–11 cm). `skid_max_height` = 0.12 m placeholder.
+
 ## Next step
 
-Write the stage 1 script.
+Write stage 2: Michell thin-ship wave resistance with demihull interference,
+reading `stage2_candidates.csv` and reusing `hullopt.geometry` offsets.
