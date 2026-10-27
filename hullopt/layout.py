@@ -208,7 +208,9 @@ def point_to_ray(p: np.ndarray, origin: np.ndarray, u: np.ndarray) -> float:
 
 @dataclass
 class Strut:
-    """Vertical faired strut from deck level down to a thruster or shroud top."""
+    """Faired straight strut from a thruster/pod top (x, y, z_bot) up to
+    (x, y_top, z_top). Vertical when y_top is None; the rear struts run
+    diagonally outboard into the hull side."""
 
     name: str
     x: float
@@ -217,13 +219,32 @@ class Strut:
     z_bot: float
     chord: float
     tc: float
+    y_top: float | None = None
+
+    @property
+    def y1(self) -> float:
+        return self.y if self.y_top is None else self.y_top
 
     @property
     def length(self) -> float:
-        return max(self.z_top - self.z_bot, 0.0)
+        return float(np.hypot(self.y1 - self.y, max(self.z_top - self.z_bot, 0.0)))
+
+    @property
+    def thickness(self) -> float:
+        return self.tc * self.chord
+
+    def submerged_height(self, z_wl: float) -> float:
+        """Vertical extent below the waterline."""
+        return max(0.0, min(self.z_top, z_wl) - self.z_bot)
 
     def submerged_length(self, z_wl: float) -> float:
-        return max(0.0, min(self.z_top, z_wl) - self.z_bot)
+        dz = self.z_top - self.z_bot
+        return self.length * self.submerged_height(z_wl) / dz if dz > 0 else 0.0
+
+    def submerged_centre(self, z_wl: float) -> np.ndarray:
+        dz = self.z_top - self.z_bot
+        f = 0.5 * self.submerged_height(z_wl) / dz if dz > 0 else 0.0
+        return np.array([self.x, self.y + f * (self.y1 - self.y), self.z_bot + f * dz])
 
     def mass(self, cfg: Config) -> float:
         # hollow printed foil: perimeter ~2.04 c (plus the arm/clamp, see mount_mass)
@@ -237,7 +258,24 @@ class Strut:
 
     @property
     def cg(self) -> np.ndarray:
-        return np.array([self.x, self.y, 0.5 * (self.z_top + self.z_bot)])
+        return np.array([self.x, 0.5 * (self.y + self.y1), 0.5 * (self.z_top + self.z_bot)])
+
+
+def rear_strut(d: Design, cfg: Config, t: Thruster) -> Strut:
+    """Diagonal strut from the top of a rear thruster, outboard and up at
+    `rear_strut_angle_deg` from vertical, ending where it meets its own hull
+    (inner side or bottom). Falls back to deck height if it never does."""
+    sign = 1.0 if t.centre[1] >= 0 else -1.0
+    a = np.radians(cfg.rear_strut_angle_deg)
+    x, y0, z0 = t.centre[0], t.centre[1], t.top_z
+    s = np.arange(0.0, 0.8, 0.002)
+    ys, zs = y0 + sign * s * np.sin(a), z0 + s * np.cos(a)
+    yc = sign * hull_centre_y(d)
+    b = halfbreadth_at(np.full_like(s, x), zs, d)
+    inside = np.nan_to_num(b - np.abs(ys - yc), nan=-1.0) >= 0
+    idx = np.nonzero(inside | (zs >= d.depth))[0]
+    k = idx[0] if len(idx) else len(s) - 1
+    return Strut(t.name, x, y0, float(zs[k]), z0, cfg.rear_strut_chord, cfg.rear_strut_tc, float(ys[k]))
 
 
 def mount_mass(strut: Strut, arm_length: float, cfg: Config) -> float:

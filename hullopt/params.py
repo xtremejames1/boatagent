@@ -125,8 +125,11 @@ class Config:
     pod_crush_len_min: float = 0.03  # PLACEHOLDER: minimum crush length ahead of the thruster
     pod_bed: tuple = (0.25, 0.25, 0.25)  # each pod must print in one piece on this bed
     impact_speed: float = 2.0        # head-on impact speed for the energy estimate
-    rear_strut_chord: float = 0.08
-    rear_strut_tc: float = 0.20
+    rear_strut_chord: float = 0.048  # diagonal rear strut, chord along the flow (m)
+    rear_strut_tc: float = 0.25      # -> 12 mm thick
+    rear_strut_angle_deg: float = 45.0  # from vertical, outboard-up into the hull side
+    strut_min_thickness: float = 0.012  # rear strut section minimum (12 mm x 24 mm)
+    strut_min_chord: float = 0.024
     mount_fixed_kg: float = 0.06     # printed clamp/bracket per thruster mount
     mount_arm_kg_per_m: float = 0.30  # printed arm from the stem to a front thruster
 

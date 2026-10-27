@@ -51,6 +51,7 @@ from .layout import (
     Pod,
     place_front,
     place_rear,
+    rear_strut,
     point_to_ray,
 )
 from .mass import MassBudget, demihull_mass
@@ -59,7 +60,7 @@ from .params import BOUNDS, Config, Design
 CONSTRAINTS = [
     "c_loa", "c_width", "c_spacing", "c_gm_t", "c_freeboard", "c_trim", "c_heel_sway",
     "c_thr_cover", "c_clearance", "c_jet", "c_skid_height", "c_skid_lcg", "c_reserve",
-    "c_pod_print", "c_pod_crush", "c_pod_window",
+    "c_pod_print", "c_pod_crush", "c_pod_window", "c_strut_size",
 ]
 OBJECTIVES = [("obj_mass", "min"), ("obj_drag", "min"), ("obj_slenderness", "max")]
 FAIL = 10.0
@@ -147,11 +148,10 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         thrusters = [fp, fs, rp, rs]
 
         struts = []
-        for t, top, chord, tc in [(fp, pp.top_z, d.pylon_chord, d.pylon_tc),
-                                  (fs, pp.top_z, d.pylon_chord, d.pylon_tc),
-                                  (rp, rp.top_z, cfg.rear_strut_chord, cfg.rear_strut_tc),
-                                  (rs, rs.top_z, cfg.rear_strut_chord, cfg.rear_strut_tc)]:
-            struts.append(Strut(t.name, t.centre[0], t.centre[1], deck, top, chord, tc))
+        for t in (fp, fs):   # front: vertical pylon from the deck-level arm down to the pod
+            struts.append(Strut(t.name, t.centre[0], t.centre[1], deck, pp.top_z, d.pylon_chord, d.pylon_tc))
+        for t in (rp, rs):   # rear: diagonal from the thruster up into the hull side
+            struts.append(rear_strut(d, cfg, t))
 
         lowest = min(b.lowest_z for b in pods + [rp, rs])
         skid = make_skid(d, cfg, lowest)
@@ -169,7 +169,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
             bud.add("mounts", mount_mass(s_, arm, cfg), s_.cg)
             vs = s_.volume_submerged(z_wl)
             if vs > 0:
-                app.add(vs, [s_.x, s_.y, 0.5 * (s_.z_bot + min(s_.z_top, z_wl))])
+                app.add(vs, s_.submerged_centre(z_wl))
         sc = skid.centroid
         for sy in (yc, -yc):
             bud.add("skids", skid_mass, [sc[0], sy, sc[2]])
@@ -239,7 +239,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
     fr = [v / math.sqrt(g * lwl) for v in cfg.surge_speeds]
 
     a_lat = hy.lateral_area + 2 * float(np.trapezoid(skid.heights, skid.xs))
-    a_lat += sum(s.submerged_length(z_wl) * s.chord for s in struts)
+    a_lat += sum(s.submerged_height(z_wl) * s.chord for s in struts)
     a_lat += sum(p_.length * 2 * p_.half_h for p_ in pods)
     sway_drag = 0.5 * rho * cfg.sway_speed ** 2 * cfg.sway_cd * a_lat
     f_sway = 2 * cfg.thr_force_kgf * g * math.sin(psi)
@@ -284,6 +284,9 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
     # ---- front pod: one-piece print, crush zone, side windows, impact energy
     pod_print = pp.print_ratio(cfg.pod_bed)
     win_frac = pp.window_area / pp.bay_side_area
+    rear_st = [s_ for s_ in struts if s_.name.startswith("rear")]
+    strut_size = max(max(cfg.strut_min_thickness / s_.thickness, cfg.strut_min_chord / s_.chord)
+                     for s_ in rear_st)
     impact_e = 0.5 * M * cfg.impact_speed ** 2
 
     c = {
@@ -303,6 +306,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         "c_pod_print": pod_print - 1.0,
         "c_pod_crush": (cfg.pod_crush_len_min - pp.nose_len) / cfg.pod_crush_len_min,
         "c_pod_window": (win_frac - cfg.pod_window_max_frac) / cfg.pod_window_max_frac,
+        "c_strut_size": strut_size - 1.0,
     }
     c = {k: float(np.clip(v, -FAIL, FAIL)) for k, v in c.items()}
     feasible = all(v <= 0 for v in c.values())
@@ -356,6 +360,8 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         "pod_mass_each": pp.mass(cfg),
         "pod_print_ratio": pod_print,
         "pod_window_frac": win_frac,
+        "rear_strut_length": rear_st[0].length,
+        "rear_strut_top_z": rear_st[0].z_top,
         "impact_energy": impact_e,
         "impact_crush_force": impact_e / pp.nose_len,
         **c,

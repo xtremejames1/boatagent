@@ -228,3 +228,25 @@ def test_front_toe_in():
     fwd_gap = (fp.centre + fp.axis * fp.length / 2)[1] - (fs.centre + fs.axis * fs.length / 2)[1]
     aft_gap = (fp.centre - fp.axis * fp.length / 2)[1] - (fs.centre - fs.axis * fs.length / 2)[1]
     assert fwd_gap < aft_gap
+
+
+def test_rear_strut_diagonal_into_hull():
+    from hullopt.geometry import halfbreadth_at
+    d, cfg = Design(), Config()
+    row, det = evaluate(d, cfg, detail=True)
+    yc = d.spacing_inner / 2 + d.beam / 2
+    for s in det.struts:
+        if not s.name.startswith("rear"):
+            continue
+        t = next(t for t in det.thrusters if t.name == s.name)
+        # starts on top of the thruster, runs outboard and up at the set angle
+        assert s.z_bot == pytest.approx(t.top_z) and s.y == pytest.approx(t.centre[1])
+        dy, dz = abs(s.y1 - s.y), s.z_top - s.z_bot
+        assert math.degrees(math.atan2(dy, dz)) == pytest.approx(cfg.rear_strut_angle_deg, abs=0.5)
+        assert abs(s.y1) > abs(s.y)
+        # ends at its own hull (within one marching step)
+        b = halfbreadth_at([s.x], [s.z_top], d)[0]
+        assert abs(abs(s.y1) - yc) <= b + 0.003
+        # section at least 12 mm thick and 24 mm chord
+        assert s.thickness >= 0.012 - 1e-12 and s.chord >= 0.024
+    assert row["c_strut_size"] <= 0

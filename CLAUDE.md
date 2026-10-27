@@ -16,7 +16,9 @@ pipeline for a small holonomic autonomous catamaran (RoboBoat-scale).
     need not crush, just take the load instead of the thruster; min 4 walls and
     10 % infill; it prints in one piece on a
     standard 250 x 250 mm bed.
-  - Rear pair: between the hulls, no pod. Only the front pair has pods.
+  - Rear pair: between the hulls, no pod. Only the front pair has pods. Each hangs
+    from one diagonal strut running outboard-up (45°) straight into its hull's side
+    (no crossbeam); strut section at least 12 mm thick and 24 mm wide.
   - Overall length ≤ 1.52 m includes the front pods (confirmed; hull `loa` is
     shorter).
 - **Grounding:** the boat must rest on the hulls, not the thrusters. Achieved with a

@@ -1,5 +1,5 @@
 """STL export of a design: front pod (with windows, thruster, pylon and arm) and the
-whole boat (hulls, skid pads, pods, thrusters, struts, arms, rear crossbeam) for viewing.
+whole boat (hulls, skid pads, pods, thrusters, struts, front arms) for viewing.
 
 Viewing meshes only: the pod is its outer skin with the side windows cut out,
 so the thruster shows through. Body frame, metres.
@@ -83,17 +83,18 @@ def thruster_mesh(t: Thruster, n: int = 32) -> Mesh:
 
 
 def foil_mesh(s: Strut, n: int = 24) -> Mesh:
-    """Vertical NACA 00xx strut from z_bot to z_top, chord along x, centred on (x, y)."""
+    """NACA 00xx strut along its axis (vertical or diagonal), chord along x."""
     xc = 0.5 * (1 - np.cos(np.linspace(0, np.pi, n // 2 + 1)))
     yt = 5 * s.tc * (0.2969 * np.sqrt(xc) - 0.1260 * xc - 0.3516 * xc**2 + 0.2843 * xc**3 - 0.1036 * xc**4)
     # upper surface LE->TE then lower TE->LE is clockwise in (x, y); reverse it to CCW
     px = (np.concatenate([xc, xc[-2:0:-1]]) - 0.5)[::-1]
     py = np.concatenate([yt, -yt[-2:0:-1]])[::-1]
-    a = np.array([s.z_bot, s.z_top])
-    m = loft(a, np.tile(px * s.chord, (2, 1)), np.tile(py * s.chord, (2, 1)))
-    # loft frame (a, b, c) -> world (x, y, z) = (b, c, a): a proper rotation
-    R = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]], float)
-    return _to_world(m, R, [s.x, s.y, 0.0])
+    m = loft(np.array([0.0, s.length]), np.tile(px * s.chord, (2, 1)), np.tile(py * s.chord, (2, 1)))
+    # loft frame (a, b, c) -> world: a along the strut axis, b along x (chord), c = a x b
+    u = np.array([0.0, s.y1 - s.y, s.z_top - s.z_bot]) / s.length
+    ex = np.array([1.0, 0.0, 0.0])
+    R = np.column_stack([u, ex, np.cross(u, ex)])
+    return _to_world(m, R, [s.x, s.y, s.z_bot])
 
 
 def skid_meshes(d: Design, skid, y: float) -> list[Mesh]:
@@ -125,18 +126,14 @@ def box_mesh(p0, p1, w: float, h: float) -> Mesh:
 
 
 def mount_meshes(d: Design, det) -> list[Mesh]:
-    """Front: arm along the deck from the bow stem to the pylon. Rear: a crossbeam
-    between the hulls at the rear struts (part of the frame)."""
+    """Front: arm along the deck from the bow stem to the pylon. (The rear struts
+    run diagonally into the hull sides, so they need no extra member.)"""
     out = []
     deck, bw = d.depth, 0.03
     for s in det.struts:
         if s.name.startswith("front"):
             out.append(box_mesh([d.loa - 0.04, s.y, deck - bw / 2], [s.x + s.chord / 2, s.y, deck - bw / 2],
                                 bw, bw))
-    rear = [s for s in det.struts if s.name == "rear_port"]
-    if rear:
-        yc = hull_centre_y(d)
-        out.append(box_mesh([rear[0].x, -yc, deck + bw / 2], [rear[0].x, yc, deck + bw / 2], bw, bw))
     return out
 
 

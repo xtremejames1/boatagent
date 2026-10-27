@@ -135,7 +135,7 @@ def prepare(d: Design, cfg: Config, c2: Stage2Config) -> Prepared | None:
         sub = s.submerged_length(det.z_wl)
         if sub > 0:
             app.append((2.04 * s.chord * sub, s.chord, 1 + 2 * s.tc + 60 * s.tc**4))
-            lat += c2.cd_appendage * s.chord * sub
+            lat += c2.cd_appendage * s.chord * s.submerged_height(det.z_wl)
     for t in det.thrusters:
         if t.name.startswith("front"):
             continue  # inside its pod; the pod carries the drag

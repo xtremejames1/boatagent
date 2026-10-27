@@ -58,7 +58,10 @@ For each design (about 0.1 s each):
      or pod point, with 45° ends rising to the keel. Positions and flat length are
      optimizer variables.
    - The front mount is an arm along the deck from the bow stem to the pod's
-     pylon. The rear struts hang from a crossbeam between the hulls.
+     pylon. Each rear thruster hangs from one diagonal strut that runs outboard
+     and up at 45° from the thruster top into its own hull's side (no
+     crossbeam). The strut section is 48 mm chord × 12 mm thick, against a
+     minimum of 24 × 12 mm.
    - Placement runs twice, so the waterline includes the appendage masses.
 4. **Trim and float.**
    - The movable payload (batteries, electronics) slides within its deck range to
