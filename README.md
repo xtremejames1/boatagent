@@ -41,7 +41,13 @@ For each design (about 0.1 s each):
 3. **Thrusters, shrouds and skids, placed against the design waterline.**
    - Each thruster hangs a set water cover (an optimizer variable) below the
      waterline.
-   - Front thrusters are angled 45° and pushed as far outboard as clearance allows.
+   - Front thrusters sit one ahead of each hull's bow, on the hull centreline,
+     `front_thr_gap` clear of the stem. They are angled 45° inside an impact shroud.
+   - Rear thrusters point fore-aft and are unshrouded. They sit wholly in the gap
+     between the hulls, as far outboard as clearance allows.
+   - Every thruster sits on a 3D-printed mount: a faired strut down from deck
+     level plus a clamp. The front mounts add an arm forward from the stem. Mount
+     mass is counted.
    - The skid bottom is set `skid_margin` below the lowest thruster or shroud point.
    - Placement runs twice, so the waterline includes the appendage masses.
 4. **Trim and float.**
@@ -50,7 +56,7 @@ For each design (about 0.1 s each):
    - The code then solves free heave and trim with mesh hydrostatics: exact surface
      integrals on the clipped mesh, waterplane by Green's theorem.
 5. **Checks** (constraint ≤ 0 means pass):
-   - overall length (including thrusters) and overall width
+   - overall length (hull + front shrouds ≤ 1.52 m) and overall width
    - inner-face spacing
    - GM_T and freeboard
    - trim
@@ -150,6 +156,7 @@ catamaran. Use it as the reference when validating the stage 3 CFD setup.
 
 SI throughout. Body frame: x forward from the transom, y to port, z up, z = 0
 at the lowest keel point. Front thruster axes point forward-outboard at 45°.
+`loa` is the hull length only; the front shrouds sit ahead of it.
 
 ## Placeholders to confirm
 

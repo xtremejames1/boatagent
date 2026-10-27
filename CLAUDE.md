@@ -6,10 +6,12 @@ pipeline for a small holonomic autonomous catamaran (RoboBoat-scale).
 ## Design decisions (settled)
 
 - **Configuration:** catamaran, holonomic.
-- **Thrusters:** 4 × Blue Robotics T200 (assume for now).
-  - Front pair mounted at the bow, angled ~45° inboard, inside a shroud that must
-    be reasonably hydrodynamic.
-  - Rear pair mounted inboard of the hulls.
+- **Thrusters:** 4 × Blue Robotics T200 (assume for now), all on 3D-printed mounts.
+  - Front pair: one in front of each hull's bow, angled ~45°, inside a shroud that
+    protects it from impacts and must be reasonably hydrodynamic.
+  - Rear pair: between the hulls, unshrouded. Only the front pair has shrouds.
+  - Overall length ≤ 1.52 m includes the front shrouds (assumption; hull `loa` is
+    shorter).
 - **Grounding:** the boat must rest on the hulls, not the thrusters. Achieved with a
   **separate, replaceable 3D-printed skid/rail** on each hull bottom that sits
   below the lowest thruster point. The hull draft is therefore a free variable,
@@ -93,8 +95,8 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
 - Findings: skid height binds in stage 1 (`skid_max_height` = 0.12 m placeholder).
   Appendages (mostly the 45° front pods) are ~80 % of weighted resistance; long
   hulls (1.45–1.5 m) have ~30 % less hull resistance than short ones.
-- Thruster mounts are provisional; the mount design will change and may reshape
-  the hull layout. Keep thruster/shroud geometry parametric.
+- Mount layout (front ahead of bows, rear between hulls) is set; mount details will
+  still change. Keep thruster/shroud/mount geometry parametric (`hullopt/layout.py`).
 
 ## Next step
 

@@ -1,10 +1,15 @@
 """Thrusters, shrouds, struts, skids, and the geometric checks between them and the hulls.
 
-Thrusters are cylinders with horizontal axes. Front thrusters sit between the
-hulls near the bow, axis at `front_thr_angle_deg` from +x, pointing
-forward-outboard (so the jet runs aft-inboard toward the other hull, or
-forward-outboard past its own bow, depending on thrust sign). Rear thrusters
-point straight fore-aft, inboard of the hulls.
+Thrusters are cylinders with horizontal axes, each on a 3D-printed mount.
+
+Front pair: one ahead of each hull's bow, on that hull's centreline, inside an
+impact shroud. Axis at `front_thr_angle_deg` from +x, pointing forward-outboard,
+so the jet runs aft-inboard toward the other hull or forward-outboard, depending
+on thrust sign. The mount is an arm forward from the stem plus a faired strut
+down to the shroud.
+
+Rear pair: unshrouded, axis fore-aft, wholly in the gap between the hulls
+(never under a hull). The mount is a faired strut down from the cross structure.
 """
 from __future__ import annotations
 
@@ -12,7 +17,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .geometry import halfbreadth_at, hull_centre_y, keel_z
+from .geometry import halfbeam, halfbreadth_at, hull_centre_y, keel_z
 from .params import Config, Design
 
 
@@ -59,27 +64,21 @@ def hull_gap(points: np.ndarray, d: Design) -> float:
     return best
 
 
-def place_inboard(t: Thruster, d: Design, clearance: float, sign: int) -> Thruster:
-    """Move a thruster as far outboard as allowed: `clearance` from its own hull,
-    and never past the inner-face line. sign=+1 port, -1 starboard.
-    Aims 1 mm past `clearance` so round-off never reads as a violation."""
-    clearance = clearance + 1e-3
-    y_cap = d.spacing_inner / 2
-    y = min(y_cap, max(t.radius, 0.0))
-    for _ in range(8):
-        c = t.centre.copy()
-        c[1] = sign * y
-        t = Thruster(t.name, c, t.heading, t.radius, t.length)
-        g = hull_gap(t.envelope_points(), d)
-        if not np.isfinite(g):
-            g = y_cap - y + clearance  # no hull nearby at this x/z: go to the cap
-        y_new = min(y_cap, y + (g - clearance))
-        if abs(y_new - y) < 1e-5:
-            break
-        y = y_new
-    c = t.centre.copy()
-    c[1] = sign * y
-    return Thruster(t.name, c, t.heading, t.radius, t.length)
+def place_front(d: Design, z: float, heading: float, radius: float, length: float) -> Thruster:
+    """Port front thruster: ahead of the port bow, on the hull centreline, with
+    `front_thr_gap` between the stem and the nearest point of the shroud."""
+    half_x = 0.5 * length * abs(np.cos(heading)) + radius * abs(np.sin(heading))
+    x = d.loa + d.front_thr_gap + half_x
+    return Thruster("front_port", np.array([x, hull_centre_y(d), z]), heading, radius, length)
+
+
+def place_rear(d: Design, x: float, z: float, radius: float, length: float, clearance: float) -> Thruster:
+    """Port rear thruster: axis fore-aft, as far outboard as the gap between the
+    hulls allows (`clearance` from the widest hull side alongside it, at any depth)."""
+    xs = np.clip(np.linspace(x - length / 2, x + length / 2, 9) / d.loa, 0, 1)
+    inner_face = hull_centre_y(d) - float(halfbeam(xs, d).max())
+    y = inner_face - clearance - 1e-3 - radius
+    return Thruster("rear_port", np.array([x, y, z]), 0.0, radius, length)
 
 
 def pair_gap(t: Thruster) -> float:
@@ -137,7 +136,7 @@ class Strut:
         return max(0.0, min(self.z_top, z_wl) - self.z_bot)
 
     def mass(self, cfg: Config) -> float:
-        # hollow printed foil: perimeter ~2.04 c
+        # hollow printed foil: perimeter ~2.04 c (plus the arm/clamp, see mount_mass)
         return self.length * 2.04 * self.chord * cfg.strut_wall * cfg.fil_density * cfg.mass_calibration
 
     def volume_submerged(self, z_wl: float) -> float:
@@ -149,6 +148,12 @@ class Strut:
     @property
     def cg(self) -> np.ndarray:
         return np.array([self.x, self.y, 0.5 * (self.z_top + self.z_bot)])
+
+
+def mount_mass(strut: Strut, arm_length: float, cfg: Config) -> float:
+    """Printed mount: faired strut + horizontal arm + clamp/bracket."""
+    arm = arm_length * cfg.mount_arm_kg_per_m * cfg.mass_calibration
+    return strut.mass(cfg) + arm + cfg.mount_fixed_kg
 
 
 def shroud_ring(cfg: Config, d: Design):

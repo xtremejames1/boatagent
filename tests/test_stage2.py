@@ -109,7 +109,7 @@ def test_form_factor_couser():
 
 
 def test_evaluate2_knee_like_design():
-    d = Design(loa=1.33, beam=0.155, depth=0.197, spacing_inner=0.395, front_thr_x_frac=1.0,
+    d = Design(loa=1.30, beam=0.155, depth=0.197, spacing_inner=0.395,
                rear_thr_x_frac=0.17)
     row = evaluate2(d, Config(), Stage2Config())
     assert row["stage2_ok"]
@@ -127,9 +127,9 @@ def test_evaluate2_knee_like_design():
 
 def test_rank_and_cli(tmp_path):
     cands = tmp_path / "c.csv"
-    designs = [Design(loa=1.33, beam=0.155, depth=0.197, spacing_inner=0.395, front_thr_x_frac=1.0,
+    designs = [Design(loa=1.30, beam=0.155, depth=0.197, spacing_inner=0.395,
                       rear_thr_x_frac=0.17),
-               Design(loa=1.45, beam=0.15, depth=0.20, spacing_inner=0.36, front_thr_x_frac=1.0,
+               Design(loa=1.35, beam=0.15, depth=0.20, spacing_inner=0.36,
                       rear_thr_x_frac=0.17)]
     keys = list(designs[0].to_dict())
     cands.write_text(",".join(keys) + "\n" + "\n".join(",".join(str(getattr(d, k)) for k in keys)

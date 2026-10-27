@@ -142,3 +142,24 @@ def test_stl_roundtrip_size(tmp_path):
     p = tmp_path / "h.stl"
     write_stl(str(p), tri)
     assert p.stat().st_size == 84 + 50 * len(tri)
+
+
+def test_thruster_layout_front_ahead_rear_between():
+    d = Design()
+    row, det = evaluate(d, Config(), detail=True)
+    th = {t.name: t for t in det.thrusters}
+    yc = d.spacing_inner / 2 + d.beam / 2
+    # front: on the hull centreline, every envelope point ahead of the bow by the gap
+    fp = th["front_port"]
+    assert fp.centre[1] == pytest.approx(yc)
+    assert fp.envelope_points()[:, 0].min() == pytest.approx(d.loa + d.front_thr_gap, abs=2e-3)
+    # rear: whole envelope inside the gap between the hulls (local hull width, any depth)
+    for name in ("rear_port", "rear_stbd"):
+        pts = th[name].envelope_points()
+        inner = yc - halfbeam(pts[:, 0] / d.loa, d)
+        assert (np.abs(pts[:, 1]) <= inner - Config().clearance_min).all()
+    # only the front pair is shrouded
+    assert th["front_port"].radius > Config().thr_radius
+    assert th["rear_port"].radius == Config().thr_radius
+    # overall length includes the front shrouds
+    assert row["loa_overall"] > d.loa + d.front_thr_gap

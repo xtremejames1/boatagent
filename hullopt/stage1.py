@@ -47,7 +47,9 @@ from .layout import (
     jet_free_length,
     make_skid,
     pair_gap,
-    place_inboard,
+    mount_mass,
+    place_front,
+    place_rear,
     point_to_ray,
     shroud_ring,
 )
@@ -132,13 +134,11 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
             return (_failed(d, "sinks"), None) if detail else _failed(d, "sinks")
         bud = MassBudget(list(fixed))
 
-        # ---- thrusters (front: shrouded, angled; rear: straight)
+        # ---- thrusters (front: shrouded, ahead of the bows; rear: between the hulls)
         fz = z_wl - d.front_thr_cover - r_sh
         rz = z_wl - d.rear_thr_cover - cfg.thr_radius
-        fp = place_inboard(Thruster("front_port", np.array([d.front_thr_x_frac * L, 0, fz]), psi, r_sh, l_sh),
-                           d, cfg.clearance_min, +1)
-        rp = place_inboard(Thruster("rear_port", np.array([d.rear_thr_x_frac * L, 0, rz]), 0.0,
-                                    cfg.thr_radius, cfg.thr_length), d, cfg.clearance_min, +1)
+        fp = place_front(d, fz, psi, r_sh, l_sh)
+        rp = place_rear(d, d.rear_thr_x_frac * L, rz, cfg.thr_radius, cfg.thr_length, cfg.clearance_min)
         fs, rs = mirror(fp, "front_stbd"), mirror(rp, "rear_stbd")
         thrusters = [fp, fs, rp, rs]
 
@@ -160,7 +160,8 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
             bud.add("shrouds", ring_m, t.centre)
             app.add(ring_v, t.centre)
         for s_ in struts:
-            bud.add("struts", s_.mass(cfg), s_.cg)
+            arm = max(s_.x - L, 0.0) if s_.name.startswith("front") else 0.0
+            bud.add("mounts", mount_mass(s_, arm, cfg), s_.cg)
             vs = s_.volume_submerged(z_wl)
             if vs > 0:
                 app.add(vs, [s_.x, s_.y, 0.5 * (s_.z_bot + min(s_.z_top, z_wl))])
@@ -254,7 +255,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
     gaps = [hull_gap(t.envelope_points(), d) for t in thrusters]
     hull_clear = float(min(gaps))
     pair_f, pair_r = pair_gap(fp), pair_gap(rp)
-    clearance = min(hull_clear, pair_f, pair_r)
+    clearance = min(hull_clear, pair_f, pair_r, d.front_thr_gap)
 
     jr = cfg.thr_radius
     jet_aft_in = jet_free_length(fp, -fp.axis, d, jr)
