@@ -19,7 +19,7 @@ class Design:
     """One candidate design. Every field here is an optimizer variable."""
 
     # --- demihull ---
-    loa: float = 1.25                # hull length overall (m), front pods excluded
+    loa: float = 1.15                # hull length overall (m), front pods excluded
     beam: float = 0.20               # demihull max beam (m)
     depth: float = 0.24              # lowest keel point to deck (m)
     deadrise_deg: float = 10.0       # bottom deadrise angle
@@ -29,11 +29,11 @@ class Design:
     entry_half_angle_deg: float = 12.0  # target half-angle of entry (plan view)
     transom_frac: float = 0.55       # transom half-beam / max half-beam
     xmax_frac: float = 0.50          # max beam and lowest keel, fraction of LOA from transom
-    bow_face_width: float = 0.06     # flat bow face the front mount plate bolts to (m)
 
     # --- layout ---
     spacing_inner: float = 12 * INCH  # gap between demihull inner faces (m)
-    front_thr_gap: float = 0.03       # bow stem to the front pod's tail (m)
+    front_thr_gap: float = -0.03      # bow tip to the aft end of the front thruster bay (m);
+                                      # negative: the narrow cap tip tucks into the bay's empty corner
     rear_thr_x_frac: float = 0.06     # rear thruster centre, fraction of LOA from transom
     front_thr_cover: float = 0.06     # water above the top of the front pod at the design waterline (m)
     rear_thr_cover: float = 0.06      # water above the top of the rear thrusters at the design waterline (m)
@@ -46,8 +46,7 @@ class Design:
 
     # --- front pod (faired, impact-absorbing, around the front thruster) ---
     pod_wall: float = 0.003          # pod shell thickness (m)
-    pod_nose_len: float = 0.05       # load-taking nose ahead of the thruster bay (m)
-    pod_tail_len: float = 0.01       # tail fairing aft of the thruster bay (m)
+    pod_nose_len: float = 0.006      # pod skin ahead of the thruster bay, up to the front hoop (m)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -70,9 +69,8 @@ BOUNDS: dict[str, tuple[float, float]] = {
     "entry_half_angle_deg": (6.0, 25.0),
     "transom_frac": (0.2, 0.9),
     "xmax_frac": (0.35, 0.65),
-    "bow_face_width": (0.06, 0.08),   # 40 mm M4 pattern + edge distance
     "spacing_inner": (10 * INCH, 0.50),
-    "front_thr_gap": (0.01, 0.10),
+    "front_thr_gap": (-0.06, 0.06),
     "rear_thr_x_frac": (0.0, 0.25),
     "front_thr_cover": (0.05, 0.15),
     "rear_thr_cover": (0.05, 0.15),
@@ -81,8 +79,7 @@ BOUNDS: dict[str, tuple[float, float]] = {
     "skid_fwd_x_frac": (0.55, 0.90),
     "skid_pad_len": (0.03, 0.15),
     "pod_wall": (0.0016, 0.006),
-    "pod_nose_len": (0.03, 0.12),
-    "pod_tail_len": (0.0, 0.06),
+    "pod_nose_len": (0.005, 0.05),
 }
 
 
@@ -119,10 +116,26 @@ class Config:
     t200_base_offset: float = 0.052  # PLACEHOLDER: thruster axis to T200 mounting face (check BR 3D model)
     t200_bolt_square: float = 0.019  # 4x M3 on a 19 mm square (M6 centre hole unused)
     mount_plate_t: float = 0.006     # front bracket plate the T200 bolts to
-    mount_plate_size: float = 0.040  # square (T200 pattern + two pod screw inserts)
+    mount_plate_size: float = 0.044  # square (T200 pattern; the upper strut lands on its outboard corner)
     hull_bolt_pattern: tuple = (0.040, 0.060)  # 4x M4 into the hull: width (y) x height (z)
-    bow_plate_t: float = 0.006       # bracket back plate against the bow face
-    bow_plate_margin: float = 0.03   # member roots this far inside the bow face top/bottom
+    # bow cap: the hull is printed blunt where it is cap_min_half*2 wide; the mount's
+    # cap slides over a spigot on it and narrows at cap_entry_deg to the bow tip (loa)
+    cap_entry_deg: float = 25.0      # cap's entry half-angle (plan view) from the cut to the tip
+    cap_min_half: float = 0.012      # cut no further forward than where the hull is 24 mm wide
+    cap_sleeve_len: float = 0.025    # cap overlaps the hull spigot by this much
+    cap_wall: float = 0.003          # cap sleeve wall (hull spigot is inset by this)
+    cap_margin: float = 0.015        # strut roots this far inside the cap top
+    forefoot_chord: float = 0.050    # forefoot fin below the cap: fore-aft length (max; stops short of the thruster)
+    frame_height_max: float = 0.245  # frame's top-to-bottom size (it lies on the bed nose-up)
+    forefoot_thick: float = 0.012
+    rail_clear: float = 0.004        # lower rail below the thruster
+    hoop_len: float = 0.008          # screw lugs at the strut ends: the nose fairing bolts on
+    bumper_tip_r: float = 0.010      # small flat at the bumper tip
+    max_overhang_deg: float = 35.0   # printable overhang from vertical (no supports)
+    inlet_cone_deg: float = 45.0     # keep-out cone at the duct inlet: half-angle,
+    inlet_cone_len_D: float = 0.5    #   and length in duct diameters
+    outlet_cone_deg: float = 15.0    # keep-out cone for the jet: half-angle,
+    outlet_cone_len_D: float = 3.0   #   and length in duct diameters
     pod_window_ratio: float = 1.0    # side window area per side / thruster disk area
     pod_window_max_frac: float = 0.7  # windows may use at most this share of the bay side
     pod_window_cd: float = 0.2       # PLACEHOLDER: drag of the open windows, on window area

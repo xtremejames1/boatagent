@@ -22,14 +22,14 @@ B_MIN = 1e-3  # half-beam at the bow tip, keeps the mesh non-degenerate
 
 def entry_exponent(d: Design) -> float:
     """Exponent of the forebody half-beam curve that gives the requested entry angle."""
-    bh = d.beam / 2 - d.bow_face_width / 2
-    n = np.tan(np.radians(d.entry_half_angle_deg)) * d.loa * (1 - d.xmax_frac) / max(bh, 1e-3)
+    bh = d.beam / 2
+    n = np.tan(np.radians(d.entry_half_angle_deg)) * d.loa * (1 - d.xmax_frac) / bh
     return float(np.clip(n, 1.0, 8.0))
 
 
 def actual_entry_angle_deg(d: Design) -> float:
     """Entry half-angle after the exponent is clipped."""
-    bh = d.beam / 2 - d.bow_face_width / 2
+    bh = d.beam / 2
     n = entry_exponent(d)
     return float(np.degrees(np.arctan(bh * n / (d.loa * (1 - d.xmax_frac)))))
 
@@ -41,8 +41,7 @@ def halfbeam(xi, d: Design) -> np.ndarray:
     b = np.empty_like(xi)
     f = xi >= xm
     s = np.clip((xi[f] - xm) / (1 - xm), 0, 1)
-    bf = max(d.bow_face_width / 2, B_MIN)    # flat bow face for the mount plate
-    b[f] = bf + (bh - bf) * (1 - s ** entry_exponent(d))
+    b[f] = bh * (1 - s ** entry_exponent(d))
     s = np.clip((xm - xi[~f]) / xm, 0, 1)
     t = d.transom_frac
     b[~f] = bh * (t + (1 - t) * (1 - s ** 2))

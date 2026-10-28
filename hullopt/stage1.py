@@ -52,6 +52,9 @@ from .layout import (
     mount_mass,
     Pod,
     place_front,
+    cap_cut_x,
+    cap_halfwidth,
+    cap_z_range,
     pod_top_extent,
     place_rear,
     rear_strut,
@@ -174,7 +177,9 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
             mounts.append([rear_strut(d, cfg, t)])
         struts = [m for mt in mounts for m in mt]
 
-        lowest = min(b.lowest_z for b in pods + [rp, rs])
+        lowest = min([b.lowest_z for b in pods + [rp, rs]]
+                     + [min(m.p0[2], m.p1[2]) - 0.5 * (m.thickness if m.flat else m.chord)
+                        for m in struts if not m.aligned or "forefoot" in m.name])
         skid = make_skid(d, cfg, lowest)
         skid_mass = skid.volume * cfg.fil_density * cfg.skid_fill * cfg.mass_calibration
 
@@ -282,11 +287,22 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         top = pose.to_earth(np.array([[b.centre[0], b.centre[1], b.top_z]]))[0, 2]
         covers.append(-top)
     cover = float(min(covers))
-    gaps = [hull_gap(b.envelope_points(), d) for b in bodies]
+    # front: the thruster itself (+ gap) against the hull and the bow cap (hull lines
+    # run to loa); the pod outline may wrap the narrow cap tip
+    env_f = [Thruster(t.name, t.centre, t.heading, t.radius + cfg.pod_gap, t.length) for t in (fp, fs)]
+    gaps = [hull_gap(b.envelope_points(), d) for b in env_f + [rp, rs]]
+    for b in env_f:   # the cap's wedge is blunter than the hull lines it replaces
+        pts = b.envelope_points()
+        wc = cap_halfwidth(d, cfg, pts[:, 0])
+        zk_c = cap_z_range(d, cfg)[0]
+        inz = pts[:, 2] > zk_c
+        g_ = np.abs(pts[:, 1] - np.sign(b.centre[1]) * yc) - wc
+        g_ = np.where(np.isnan(g_) | ~inz, np.inf, g_)
+        gaps.append(float(g_.min()))
     hull_clear = float(min(gaps))
     pair_f = 2 * (pp.y - pp.half_w)
     pair_r = pair_gap(rp)
-    clearance = min(hull_clear, pair_f, pair_r, d.front_thr_gap)
+    clearance = min(hull_clear, pair_f, pair_r)
 
     jr = cfg.thr_radius
     jet_aft = jet_free_length(fp, -fp.axis, d, jr)   # aft-outboard with toe-in
@@ -306,7 +322,12 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
     skid_lcg = min(lcg - skid.x0, skid.x1 - lcg)
 
     # ---- front pod: one-piece print, crush zone, side windows, impact energy
-    pod_print = pp.print_ratio(cfg.pod_bed)
+    # front part (cap + struts + skin + hoop) prints nose-up: its x length is the print
+    # height; the bumper prints separately
+    main_len = (pp.x_bumper) - (cap_cut_x(d, cfg) - cfg.cap_sleeve_len)   # frame, nose-up
+    main_w = sorted([2 * pp.half_w, d.depth - cap_z_range(d, cfg)[0], 2 * pp.half_h])
+    pod_print = max(main_len / cfg.pod_bed[2], pp.bumper_len / cfg.pod_bed[2],
+                    max(main_w[-1], 2 * pp.half_w) / max(cfg.pod_bed[:2]))
     win_frac = pp.window_area / pp.bay_side_area
     rear_st = [s_ for s_ in struts if s_.name.startswith("rear")]
     strut_size = max(max(cfg.strut_min_thickness / s_.thickness, cfg.strut_min_chord / s_.chord)

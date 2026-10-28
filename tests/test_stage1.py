@@ -48,7 +48,7 @@ def test_planform_and_keel():
     d = Design()
     assert halfbeam([d.xmax_frac], d)[0] == pytest.approx(d.beam / 2)
     assert halfbeam([0.0], d)[0] == pytest.approx(d.transom_frac * d.beam / 2)
-    assert halfbeam([1.0], d)[0] == pytest.approx(d.bow_face_width / 2)   # flat bow face
+    assert halfbeam([1.0], d)[0] < 0.005          # pointed bow (the mount's cap makes the entry)
     assert keel_z([d.xmax_frac], d)[0] == 0
     assert keel_z([1.0], d)[0] == pytest.approx(d.rocker_fwd)
     assert keel_z([0.0], d)[0] == pytest.approx(d.rocker_aft)
@@ -158,8 +158,9 @@ def test_thruster_layout_front_ahead_rear_between():
     assert pod.x0 == pytest.approx(d.loa + d.front_thr_gap)
     # thruster envelope sits inside the pod (with the inner gap)
     pts = th["front_port"].envelope_points()
-    assert pts[:, 0].min() >= pod.x0 + d.pod_wall - 1e-9
-    assert pts[:, 0].max() <= pod.x1 - d.pod_nose_len - d.pod_wall + 1e-9
+    assert pts[:, 0].min() >= pod.x0 - 1e-9
+    assert pts[:, 0].max() <= pod.x0 + pod.bay_len + 1e-9
+    assert pod.x_hoop >= pod.x0 + pod.bay_len and pod.x1 == pytest.approx(pod.x_bumper + pod.bumper_len)
     assert np.abs(pts[:, 1] - pod.y).max() <= pod.half_w - d.pod_wall + 1e-9
     assert np.abs(pts[:, 2] - pod.z).max() <= pod.half_h - d.pod_wall + 1e-9
     # rear: whole envelope inside the gap between the hulls (local hull width, any depth)
@@ -175,7 +176,7 @@ def test_thruster_layout_front_ahead_rear_between():
 
 
 def test_pod_too_long_for_bed_is_flagged():
-    row = evaluate(Design(pod_nose_len=0.12, pod_tail_len=0.06))
+    row = evaluate(Design(pod_nose_len=0.05, front_thr_gap=0.10))
     assert row["c_pod_print"] > 0
 
 
@@ -252,32 +253,36 @@ def test_rear_strut_diagonal_into_hull():
     assert row["c_strut_size"] <= 0
 
 
-def test_front_bow_members():
-    from hullopt.layout import bow_face, mount_plate_centre
+def test_front_frame_members():
+    from hullopt.layout import cap_cut_x, mount_plate_centre, upper_offset
     d, cfg = Design(), Config()
     row, det = evaluate(d, cfg, detail=True)
     pod = det.pods[0]
     fp = next(t for t in det.thrusters if t.name == "front_port")
-    up = next(s for s in det.struts if s.name == "front_port_upper")
-    lo = next(s for s in det.struts if s.name == "front_port_lower")
-    zb, zt = bow_face(d)
+    m = {s.name.replace("front_port_", ""): s for s in det.struts if s.name.startswith("front_port")}
+    ua, ub, ff, rl = m["upper_a"], m["upper_b"], m["forefoot"], m["rail"]
+    xc = cap_cut_x(d, cfg)
+    tan_ov = np.tan(np.radians(cfg.max_overhang_deg))
+    # every member leans at most max_overhang from +x (prints nose-up, no supports)
+    for s in (ua, ub, rl):
+        dx = abs(s.p1[0] - s.p0[0])
+        assert np.hypot(s.p1[1] - s.p0[1], s.p1[2] - s.p0[2]) <= tan_ov * dx + 1e-9
+        assert s.thickness >= 0.012 - 1e-12 and s.chord >= 0.024
+    # upper strut: cap -> T200 plate (offset outboard, clear of the screws) -> top lug
+    assert ua.p0[0] == pytest.approx(xc)
     pc = mount_plate_centre(cfg, fp)
-    for s in (up, lo):
-        # from the back plate on the bow face to the T200 mount plate, in the hull's centre plane
-        assert s.p0[0] == pytest.approx(d.loa + cfg.bow_plate_t)
-        assert abs(s.p1[0] - pc[0]) <= cfg.mount_plate_size / 2 + 1e-9
-        h = s.thickness if s.flat else s.chord     # vertical size where it lands
-        assert s.p1[2] == pytest.approx(pc[2] + cfg.mount_plate_t / 2 + h / 2)
-        assert s.p0[1] == pytest.approx(pod.y) and s.p1[1] == pytest.approx(pod.y)
-        assert s.thickness >= 0.012 - 1e-12 and s.chord >= 0.024 and not s.aligned
-    assert lo.flat and not up.flat     # lower is a plate across y, upper is upright
-    assert up.p0[2] == pytest.approx(zt - cfg.bow_plate_margin)
-    assert lo.p0[2] == pytest.approx(zb + cfg.bow_plate_margin)
-    # mount plate is inside the pod, under its top wall
-    assert pc[2] + cfg.mount_plate_t / 2 <= pod.top_z - d.pod_wall - cfg.pod_gap + 1e-9
-    # two front members per side, one rear strut per side
-    assert sum(s.name.startswith("front") for s in det.struts) == 4
+    assert ua.p1[0] == pytest.approx(pc[0]) and ub.p0 == pytest.approx(ua.p1)
+    assert abs(ua.p1[1] - pod.y) == pytest.approx(upper_offset(cfg))
+    assert ub.p1[0] == pytest.approx(pod.x_hoop + pod.hoop_len / 2)
+    # rail: level, under the thruster, from the forefoot to the bottom lug
+    assert rl.p0[2] == pytest.approx(rl.p1[2])
+    assert rl.p0[2] + rl.thickness / 2 < fp.lowest_z
+    assert rl.p0 == pytest.approx(ff.p0)
+    # forefoot stops short of the thruster
+    assert ff.p0[0] + ff.chord / 2 <= fp.centre[0]
+    assert sum(s.name.startswith("front") for s in det.struts) == 8
     assert sum(s.name.startswith("rear") for s in det.struts) == 2
+
 
 
 def test_pod_section_encloses_thruster_and_plate():

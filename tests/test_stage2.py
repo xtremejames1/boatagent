@@ -9,8 +9,8 @@ from hullopt.stage2 import Stage2Config, evaluate2, form_factor, main, rank
 
 G = 9.81
 # a design that passes every stage 1 check (narrow, deep hull keeps the skid pads short)
-FEASIBLE = dict(loa=1.22, beam=0.13, depth=0.21, spacing_inner=0.395, rear_thr_x_frac=0.17,
-                front_thr_cover=0.051, rear_thr_cover=0.051)
+FEASIBLE = dict(loa=1.15, beam=0.13, depth=0.24, spacing_inner=0.395, rear_thr_x_frac=0.17,
+                front_thr_cover=0.051, rear_thr_cover=0.051, skid_margin=0.0101, front_thr_gap=-0.03)
 
 
 def strut(L=1.0, B=0.1, T=0.06, nx=401, nz=8):
@@ -130,7 +130,7 @@ def test_evaluate2_knee_like_design():
 def test_rank_and_cli(tmp_path):
     cands = tmp_path / "c.csv"
     designs = [Design(**FEASIBLE),
-               Design(**dict(FEASIBLE, loa=1.25, spacing_inner=0.36, skid_margin=0.011))]
+               Design(**dict(FEASIBLE, loa=1.10, beam=0.14))]
     keys = list(designs[0].to_dict())
     cands.write_text(",".join(keys) + "\n" + "\n".join(",".join(str(getattr(d, k)) for k in keys)
                                                       for d in designs) + "\n")
@@ -140,13 +140,3 @@ def test_rank_and_cli(tmp_path):
     rows = [evaluate2(d, Config(), Stage2Config()) for d in designs]
     pareto, finals = rank(rows, 1)
     assert len(finals) == 1
-
-
-def test_blunt_bow_adds_wave_resistance():
-    from hullopt.stage2 import prepare, resistance
-    cfg, c2 = Config(), Stage2Config()
-    base = dict(loa=1.22, beam=0.155, depth=0.197, spacing_inner=0.395, rear_thr_x_frac=0.17)
-    U = 1.3
-    r_narrow = resistance(prepare(Design(**base, bow_face_width=0.06), cfg, c2), U, cfg, c2)
-    r_wide = resistance(prepare(Design(**base, bow_face_width=0.08), cfg, c2), U, cfg, c2)
-    assert r_wide["R_wave"] > r_narrow["R_wave"]

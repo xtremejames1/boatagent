@@ -69,12 +69,13 @@ def hull_gap(points: np.ndarray, d: Design) -> float:
 
 @dataclass
 class Pod:
-    """Faired, impact-absorbing pod around a front thruster, aligned with +x.
+    """Faired pod around a front thruster, aligned with +x (outer envelope).
 
     Section: ellipse with half-width `half_w` and half-height `half_h` (outer).
-    From aft to fore: tail fairing, the thruster bay (thruster at 45 deg inside,
-    side windows let it draw and discharge water sideways), then a hollow nose that takes the load.
-    The pod is flooded: only its printed material gives buoyancy.
+    From aft to fore: the thruster bay (thruster at 45 deg; open aft, the skin
+    starts at the inlet), skin up to a front hoop, then a separate nose bumper
+    that screws onto the hoop and takes head-on hits. Struts run from the bow
+    cap to the hoop, so impacts bypass the thruster. Flooded.
     """
 
     name: str
@@ -89,6 +90,14 @@ class Pod:
     window_area: float   # open area per side
     bay_side_area: float  # side area of the thruster bay (per side)
     bay_len: float = 0.0  # fore-aft length of the thruster bay (inside the walls)
+    x_hoop: float = 0.0   # aft face of the front hoop
+    hoop_len: float = 0.0
+    bumper_len: float = 0.0
+
+    @property
+    def x_bumper(self) -> float:
+        """Aft face of the nose bumper (= front face of the hoop)."""
+        return self.x_hoop + self.hoop_len
 
     @property
     def length(self) -> float:
@@ -118,7 +127,14 @@ class Pod:
     def outer_area(self) -> float:
         a, b = self.half_w, self.half_h
         perim = np.pi * (3 * (a + b) - np.sqrt((3 * a + b) * (a + 3 * b)))  # Ramanujan
-        return float(0.8 * perim * self.length)  # 0.8: nose and tail taper
+        if self.bumper_len <= 0:
+            return float(0.8 * perim * self.length)  # 0.8: nose and tail taper
+        # skin from about the thruster centre (it starts at the inlet) to the hoop,
+        # plus the bumper as a cone
+        xt = self.x0 + self.bay_len / 2
+        skin = perim * (self.x_bumper - xt)
+        slant = float(np.hypot(self.bumper_len, 0.5 * (a + b)))
+        return float(skin + 0.5 * perim * slant)
 
     def material_volume(self, cfg: Config) -> float:
         shell = max(self.outer_area - 2 * self.window_area, 0.0) * self.wall
@@ -175,20 +191,28 @@ def pod_section(d: Design, cfg: Config, heading: float) -> tuple[float, float, f
     return float(dz), k * a0 + w, k * b0 + w
 
 
+def bumper_length(cfg: Config, half_w: float) -> float:
+    """Shortest nose bumper that prints nose-up without supports: its wall leans
+    in no more than `max_overhang_deg` from vertical, down to a small flat tip."""
+    return (half_w - cfg.bumper_tip_r) / np.tan(np.radians(cfg.max_overhang_deg))
+
+
 def place_front(d: Design, cfg: Config, z: float, heading: float) -> tuple[Thruster, Pod]:
     """Port front thruster (axis at height z) and its pod: ahead of the port bow on the
-    hull centreline, `front_thr_gap` between the bow face and the pod's tail."""
+    hull centreline, `front_thr_gap` between the bow tip and the thruster bay."""
     R, l, g, w = cfg.thr_radius, cfg.thr_length, cfg.pod_gap, d.pod_wall
     sn, cs = abs(np.sin(heading)), abs(np.cos(heading))
     xe = 0.5 * l * cs + R * sn + g          # half x-extent of the bay
     dz, half_w, half_h = pod_section(d, cfg, heading)
-    x0 = d.loa + d.front_thr_gap
-    xt = x0 + d.pod_tail_len + w + xe
-    x1 = xt + xe + w + d.pod_nose_len
+    x0 = d.loa + d.front_thr_gap            # aft end of the bay (open; no tail)
+    xt = x0 + xe
+    x_hoop = x0 + 2 * xe                    # fairing lugs at the front of the bay (the inlet)
+    bl = d.pod_nose_len + bumper_length(cfg, half_w)   # fairing: straight part + nose
+    x1 = x_hoop + cfg.hoop_len + bl
     yc = hull_centre_y(d)
     win = cfg.pod_window_ratio * np.pi * R * R
-    pod = Pod("front_port", x0, x1, yc, z + dz, half_w, half_h, d.pod_nose_len, w, win,
-              2 * xe * 2 * (R + g), 2 * xe)
+    pod = Pod("front_port", x0, x1, yc, z + dz, half_w, half_h, x1 - (x0 + 2 * xe), w, win,
+              2 * xe * 2 * (R + g), 2 * xe, x_hoop, cfg.hoop_len, bl)
     return Thruster("front_port", np.array([xt, yc, z]), heading, R, l), pod
 
 
@@ -363,9 +387,42 @@ def rear_strut(d: Design, cfg: Config, t: Thruster) -> Strut:
                  cfg.rear_strut_chord, cfg.rear_strut_tc, aligned=True)
 
 
-def bow_face(d: Design) -> tuple[float, float]:
-    """Bottom and top z of the flat bow face (keel at the bow to the deck)."""
-    return float(keel_z(np.array([1.0]), d)[0]), d.depth
+def cap_cut_x(d: Design, cfg: Config) -> float:
+    """Where the printed hull ends (blunt). The cap narrows from there at
+    `cap_entry_deg` to the bow tip at loa; the cut is moved aft if the hull would
+    be narrower than 2 * cap_min_half there."""
+    t = np.tan(np.radians(cfg.cap_entry_deg))
+    xs = np.linspace(d.loa - 0.25, d.loa, 501)
+    b = halfbeam(xs / d.loa, d)
+    ok = (xs + b / t <= d.loa) & (b >= cfg.cap_min_half)
+    return float(xs[ok][-1]) if ok.any() else float(xs[0])
+
+
+def cap_z_range(d: Design, cfg: Config) -> tuple[float, float]:
+    """Keel at the hull cut, and the top of the cap. The cap covers the lower bow;
+    above its top the printed hull keeps its own bow."""
+    xc = cap_cut_x(d, cfg)
+    zk = float(keel_z(np.array([xc / d.loa]), d)[0])
+    return zk, d.depth
+
+
+def cap_top(d: Design, cfg: Config, z_frame_bottom: float) -> float:
+    """Top of the cap: the deck, or lower so the frame lies on the bed nose-up."""
+    return min(d.depth, z_frame_bottom + cfg.frame_height_max)
+
+
+def cap_halfwidth(d: Design, cfg: Config, x: np.ndarray) -> np.ndarray:
+    """Half-width of the cap's wedge from the cut (hull's half-beam) to the tip."""
+    xc = cap_cut_x(d, cfg)
+    bc = float(halfbeam(np.array([xc / d.loa]), d)[0])
+    w = bc - (np.asarray(x, float) - xc) * np.tan(np.radians(cfg.cap_entry_deg))
+    return np.where((x >= xc) & (x <= d.loa), np.maximum(w, 0.0), np.nan)
+
+
+def upper_offset(cfg: Config) -> float:
+    """Upper strut's sideways offset over the T200 plate: clear of the screw nearest
+    to it (on the 19 mm square turned 45 deg) plus a 4 mm tool radius and 1.5 mm."""
+    return cfg.t200_bolt_square / np.sqrt(2) + 0.0055 + cfg.front_upper_thick / 2
 
 
 def mount_plate_centre(cfg: Config, t: Thruster) -> np.ndarray:
@@ -374,24 +431,53 @@ def mount_plate_centre(cfg: Config, t: Thruster) -> np.ndarray:
 
 
 def front_members(d: Design, cfg: Config, t: Thruster, pod: Pod) -> list[Strut]:
-    """Front bracket: a back plate bolted to the flat bow face, and two members
-    from it to the T200 mount plate (a triangle). Upper: from near the top of the
-    bow face down-forward; lower: from near the bottom, roughly level."""
-    zb, zt = bow_face(d)
-    m = cfg.bow_plate_margin
-    x0 = d.loa + cfg.bow_plate_t
-    pc = mount_plate_centre(cfg, t)
-    a = cfg.mount_plate_size
-    # both land on top of the T200 plate (their full depth above it, clear of the thruster)
+    """Front frame, one printed part with the bow cap; prints nose-up (+x up), so
+    every member leans at most `max_overhang_deg` from +x.
+
+    upper_a:  cap (high) down-forward onto the T200 plate (outboard side of it);
+    upper_b:  T200 plate up-forward to the fairing's top lug;
+    forefoot: fin below the cap, from the keel down to the rail level;
+    rail:     level, from the forefoot under the thruster to the fairing's bottom lug.
+    Impacts on the nose fairing go lugs -> struts/rail -> cap, not through the thruster.
+    """
+    xc = cap_cut_x(d, cfg)
+    zk, _ = cap_z_range(d, cfg)
+    tan_ov = 0.95 * np.tan(np.radians(cfg.max_overhang_deg))
+    side = 1.0 if pod.y >= 0 else -1.0
+    lt_ = cfg.front_lower_thick
+    z_rail_ = t.centre[2] - t.radius - cfg.rail_clear - lt_ / 2
+    zd = cap_top(d, cfg, z_rail_ - lt_ / 2)
     uh, ut = cfg.front_upper_depth, cfg.front_upper_thick
     lw, lt = cfg.front_lower_width, cfg.front_lower_thick
-    upper = Strut(t.name + "_upper", np.array([x0, pod.y, zt - m]),
-                  pc + np.array([0.25 * a, 0, cfg.mount_plate_t / 2 + uh / 2]),
-                  uh, ut / uh, aligned=False)
-    lower = Strut(t.name + "_lower", np.array([x0, pod.y, zb + m]),
-                  pc + np.array([-0.5 * a, 0, cfg.mount_plate_t / 2 + lt / 2]),
-                  lw, lt / lw, aligned=False, flat=True)
-    return [upper, lower]
+    pc = mount_plate_centre(cfg, t)
+    # strut line over the plate: outboard of the M3 screws (+ tool clearance)
+    yo = pod.y + side * upper_offset(cfg)
+    node = np.array([pc[0], yo, pc[2] + cfg.mount_plate_t / 2 + uh / 2])
+    xl = pod.x_hoop + pod.hoop_len / 2               # lugs at the fairing's aft edge
+    top = np.array([xl, yo, pod.z + pod.half_h - pod.wall - uh / 2])
+    # upper_a root: as high on the cap as the overhang limit allows
+    dx = node[0] - xc
+    dzmax = np.sqrt(max((tan_ov * dx) ** 2 - (yo - pod.y) ** 2, 0.0))
+    root = np.array([xc, pod.y, min(zd - cfg.cap_margin - uh / 2, node[2] + dzmax)])
+    # keep upper_b within the limit too (drop the top lug if needed)
+    dzb = tan_ov * (top[0] - node[0])
+    top[2] = min(top[2], node[2] + dzb)
+    upper_a = Strut(t.name + "_upper_a", root, node, uh, ut / uh, aligned=False)
+    upper_b = Strut(t.name + "_upper_b", node, top, uh, ut / uh, aligned=False)
+    z_rail = z_rail_
+    # forefoot fin: from the sleeve's aft end forward, stopping clear of the thruster
+    x_back = xc - cfg.cap_sleeve_len
+    env = Thruster(t.name, t.centre, t.heading, t.radius + cfg.clearance_min, t.length).envelope_points(9, 24)
+    near = np.abs(env[:, 1] - pod.y) < cfg.forefoot_thick / 2 + 1e-3
+    near &= env[:, 2] < zk
+    x_lim = float(env[near, 0].min()) if near.any() else x_back + cfg.forefoot_chord
+    chord = float(np.clip(x_lim - x_back, 0.015, cfg.forefoot_chord + cfg.cap_sleeve_len))
+    xf = x_back + chord / 2
+    fore = Strut(t.name + "_forefoot", np.array([xf, pod.y, z_rail]), np.array([xf, pod.y, zk + 0.005]),
+                 chord, cfg.forefoot_thick / chord, aligned=True)
+    rail = Strut(t.name + "_rail", np.array([xf, pod.y, z_rail]), np.array([xl, pod.y, z_rail]),
+                 lw, lt / lw, aligned=False, flat=True)
+    return [upper_a, upper_b, fore, rail]
 
 
 def mount_mass(members: list, cfg: Config) -> float:
