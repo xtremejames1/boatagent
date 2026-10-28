@@ -1,0 +1,163 @@
+{
+  "design": {
+    "loa": 1.20874,
+    "beam": 0.137792,
+    "depth": 0.200729,
+    "deadrise_deg": 24.419,
+    "bilge_frac": 0.865211,
+    "rocker_fwd": 0.0233089,
+    "rocker_aft": 0.02456,
+    "entry_half_angle_deg": 7.40837,
+    "transom_frac": 0.294356,
+    "xmax_frac": 0.454726,
+    "bow_face_width": 0.0638839,
+    "spacing_inner": 0.355631,
+    "front_thr_gap": 0.0570542,
+    "rear_thr_x_frac": 0.221022,
+    "front_thr_cover": 0.0506203,
+    "rear_thr_cover": 0.0610375,
+    "skid_margin": 0.0141537,
+    "skid_aft_x_frac": 0.440341,
+    "skid_fwd_x_frac": 0.603584,
+    "skid_pad_len": 0.0318727,
+    "pod_wall": 0.00170859,
+    "pod_nose_len": 0.0360525,
+    "pod_tail_len": 0.00536967
+  },
+  "parts": {
+    "front_bracket": {
+      "bbox_mm": [
+        177.6,
+        63.9,
+        167.4
+      ],
+      "fits_bed": true,
+      "volume_cm3": 180.8,
+      "slicer": {
+        "g": 114.3,
+        "cm3": 92.18,
+        "time": "9h 15m 57s",
+        "note": ""
+      }
+    },
+    "front_pod": {
+      "bbox_mm": [
+        205.1,
+        186.7,
+        140.6
+      ],
+      "fits_bed": true,
+      "volume_cm3": 604.4,
+      "slicer": {
+        "g": 295.12,
+        "cm3": 238.0,
+        "time": "22h 43m 6s",
+        "note": ""
+      }
+    }
+  },
+  "strength": {
+    "material": "PLA (printed)",
+    "sigma_allow_MPa": 25.0,
+    "breakaway_N": 420.0,
+    "insert_pullout_N": 800.0,
+    "cases": [
+      {
+        "case": "forward thrust x3 (155 N)",
+        "bolt_tension_max_N": 341.0,
+        "bolt_shear_max_N": 124.2,
+        "members": [
+          {
+            "name": "front_port_upper",
+            "axial_N": -95.0,
+            "sigma_MPa": 5.97,
+            "tau_MPa": 1.06,
+            "utilisation": 0.25,
+            "buckling": 0.025
+          },
+          {
+            "name": "front_port_lower",
+            "axial_N": 197.5,
+            "sigma_MPa": 15.95,
+            "tau_MPa": 3.07,
+            "utilisation": 0.672,
+            "buckling": 0.0
+          }
+        ]
+      },
+      {
+        "case": "reverse thrust x3 (121 N)",
+        "bolt_tension_max_N": 223.6,
+        "bolt_shear_max_N": 97.0,
+        "members": [
+          {
+            "name": "front_port_upper",
+            "axial_N": 74.2,
+            "sigma_MPa": 4.66,
+            "tau_MPa": 0.82,
+            "utilisation": 0.195,
+            "buckling": 0.0
+          },
+          {
+            "name": "front_port_lower",
+            "axial_N": -154.2,
+            "sigma_MPa": 12.46,
+            "tau_MPa": 2.4,
+            "utilisation": 0.525,
+            "buckling": 0.01
+          }
+        ]
+      },
+      {
+        "case": "head-on impact at breakaway x1.25 (525 N)",
+        "bolt_tension_max_N": 410.5,
+        "bolt_shear_max_N": 0.0,
+        "members": [
+          {
+            "name": "front_port_upper",
+            "axial_N": 429.3,
+            "sigma_MPa": 12.21,
+            "tau_MPa": 0.0,
+            "utilisation": 0.488,
+            "buckling": 0.0
+          },
+          {
+            "name": "front_port_lower",
+            "axial_N": -923.2,
+            "sigma_MPa": 16.99,
+            "tau_MPa": 0.0,
+            "utilisation": 0.68,
+            "buckling": 0.059
+          }
+        ]
+      },
+      {
+        "case": "side hit at breakaway x1.25 (525 N)",
+        "bolt_tension_max_N": 1604.4,
+        "bolt_shear_max_N": 582.0,
+        "members": [
+          {
+            "name": "front_port_upper",
+            "axial_N": 0.0,
+            "sigma_MPa": 4.59,
+            "tau_MPa": 2.6,
+            "utilisation": 0.257,
+            "buckling": -0.0
+          },
+          {
+            "name": "front_port_lower",
+            "axial_N": 0.0,
+            "sigma_MPa": 93.69,
+            "tau_MPa": 13.06,
+            "utilisation": 3.855,
+            "buckling": -0.0
+          }
+        ]
+      }
+    ]
+  },
+  "model_estimates_kg": {
+    "pod": 0.21525449701954064,
+    "mounts_total_all_four": 0.32367970777577676
+  }
+}

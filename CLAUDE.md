@@ -122,8 +122,19 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
   that limit is the only way higher; check ventilation in CFD first.
 - Viewing STLs: `python -m hullopt.export`; stage 2 writes `_pod.stl` and
   `_assembly.stl` for each finalist.
+- Printable parts: `python -m hullopt.parts` (CadQuery; STEP + STL; PrusaSlicer mass;
+  strength report). Material PLA for the prototype. Hull interface: 4x M4 on a
+  40 x 60 mm pattern. T200: 4x M3 on 19 mm square + M6 (base offset from the axis
+  is a placeholder, `t200_base_offset`; check against the Blue Robotics model).
+  Breakaway: pod on nylon M3 shear screws, ~420 N; bracket must hold 3x thrust
+  and 1.25x breakaway head-on. Side hits at breakaway load are not yet survivable.
+- Workflow: user reviews parts (STL links / renders) and gives feedback; iterate
+  the parametric parts, then feed slicer masses back into the optimizer.
 
 ## Next step
+
+Iterate the front pod and bracket with the user, then the rear mount and skid pads
+as parts. Then:
 
 Stage 3: OpenFOAM interFoam. Validate on a Wigley catamaran first (reference Michell
 values from `python -m hullopt.stage2 wigley`), mesh independence study, then the

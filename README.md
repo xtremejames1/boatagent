@@ -13,6 +13,7 @@ pip install -r requirements.txt
 python -m hullopt.stage1 eval --gz                # one design, every metric + GZ curve
 python -m hullopt.stage1 run --trials 3000        # optimizer -> results/stage1/
 python -m hullopt.stage2 run                      # score candidates -> results/stage2/
+python -m hullopt.parts --design results/stage2/designs/finalist_1.json   # printable parts
 python -m pytest -q                               # tests
 ```
 
@@ -157,31 +158,59 @@ catamaran. Use it as the reference when validating the stage 3 CFD setup.
   values: 2.14e-3 at Fr 0.3 and 4.52e-3 at Fr 0.5. Michell theory overpredicts
   the measured hump at Fr 0.5 by about 2×, which is a known limitation.
 
-### What stage 2 shows (bow-member brackets, diagonal rear struts, skid pads)
+### What stage 2 shows (current run)
 
-- **Best weighted resistance at 0.5–1.5 m/s is 15.5 N.** Of that, 4.7 N is the
-  hull and 10.9 N the appendages. At 2 m/s the thrusters have 3.0× the thrust
-  needed. The 1.28 m hulls (slenderness about 5.5) have the least drag. The
-  1.0–1.1 m hulls are about 0.5 kg lighter and turn faster but carry 10–25 %
-  more drag.
-- **Mounts.** Each front pod hangs from two 48 × 12 mm members off the bow stem;
-  each rear thruster from one diagonal strut into its hull side. All four mounts
-  together weigh about 0.37 kg.
-- **The bow members cost about 1.5 N.** At 1 m/s the four front members add
-  about 1.4 N, mostly pressure on their 12 mm faces at `member_cd` 1.0. That is
-  conservative, because they meet the flow at an angle. The rear struts face the
-  flow as foils and add under 0.1 N.
-- **Toe-in** keeps the front jets clear of every hull. The top turn-in-place rate
-  is about 230 °/s.
-- **Skid pads** on finalist 1 are 7.9 cm tall at most.
-- **Thruster height is at its limit.** The optimizer already puts the thrusters
-  as high as `thr_cover_min` (5 cm) allows. Each centimetre less cover makes the
-  pads about 1 cm shorter; check ventilation in stage 3 first.
-- **Guessed drag coefficients.** The pod window drag, bare rear thruster drag
-  and bow member drag all rest on guessed coefficients; stage 3 should measure
-  them.
-- **The rear jets still graze the front pods** (`jet_rear_to_front_thr` < 0).
-  This is reported but doesn't fail a design.
+- **Best weighted resistance at 0.5–1.5 m/s is 17.6 N**, on a 1.21 m hull: 5.3 N
+  hull and 12.4 N appendages. At 2 m/s the thrusters have 2.9× the thrust needed.
+- **The pod sets the hull length.** Sized properly around the 45° T200 and its
+  mount plate, the pod is 205 × 187 × 141 mm. With the bracket gap, the boat's
+  1.52 m overall leaves about 1.2–1.3 m of hull. Longer hulls still have less
+  drag: on finalist 1, 18.0 N at 1.28 m against 18.6 N at 1.11 m.
+- **What's left of the appendage drag**, at 1 m/s:
+
+  | source | drag |
+  |---|---|
+  | pod bodies | ≈3.2 N |
+  | pod side windows | ≈3.1 N |
+  | bare rear thrusters | ≈2.4 N |
+  | four bow members | ≈1.5 N |
+
+  The window, rear-thruster and member numbers rest on guessed drag
+  coefficients, so stage 3 should measure them.
+- **Thruster height is at its limit.** The optimizer puts the thrusters as high
+  as `thr_cover_min` (5 cm) allows. The taller pod makes the skid pads about
+  9–10 cm tall.
+
+## Printable parts (front pod and bracket)
+
+`python -m hullopt.parts --design results/stage2/designs/finalist_1.json --out results/parts`
+builds the port-side parts with CadQuery; starboard is the mirror image. It
+writes STEP files (to open and edit in any CAD tool), STLs, and a report:
+
+- **front_bracket:** a back plate on the hull's flat bow face, 4 × M4 on a
+  40 × 60 mm pattern (y × z). Two members run from it to a 40 mm plate on top of
+  the T200: an upright 24 × 12 mm upper member and a flat 40 × 12 mm lower plate
+  that takes sideways loads. The T200 plate has 4 × M3 holes on a 19 mm square
+  plus the centre M6, and two M3 heat-set holes for the pod.
+- **front_pod:** a 4-wall shell over the thruster and bracket. It has a solid
+  nose that takes head-on hits instead of the thruster, side windows for
+  inflow, an open tail, and a top slot the members pass through. Two bosses
+  carry nylon M3 screws into the bracket plate. Those screws shear at about
+  420 N, so in a hard hit the pod breaks off before the bracket or the bow.
+- **Slicer mass:** PrusaSlicer runs headless with PLA, 4 walls, 10 % gyroid and
+  0.2 mm layers on a 250 mm bed. It reports grams and print time per part.
+- **Strength:** a 3D frame model of the members (`hullopt/strength.py`), using
+  printed PLA with a 25 MPa allowable across layers and walls only (infill
+  ignored). Load cases:
+  - 3× forward and reverse thrust
+  - a head-on hit at 1.25× the pod's breakaway load
+  - a side hit at the same load
+
+  It reports member stress, buckling and the force on each hull screw.
+- **front_assembly.stl:** the two parts plus a T200 stand-in, for viewing.
+
+The bow face width (60–80 mm) is an optimizer variable. The hull meets the
+bracket there, and the wave model counts the blunt bow.
 
 ## Coordinates and units
 
@@ -230,5 +259,7 @@ hullopt/stage1.py        evaluation, NSGA-II driver, candidate selection, CLI
 hullopt/michell.py       Michell wave resistance (mono / catamaran), Wigley offsets
 hullopt/stage2.py        resistance build-up, sway, yaw, finalist selection, CLI
 hullopt/export.py        viewing STLs: front pod and full assembly
+hullopt/parts.py         printable CAD parts (CadQuery), slicer mass, report
+hullopt/strength.py      frame and bolt-group strength check for the mounts
 tests/                   analytic box checks, mesh checks, end-to-end checks
 ```
