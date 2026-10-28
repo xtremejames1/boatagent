@@ -140,3 +140,13 @@ def test_rank_and_cli(tmp_path):
     rows = [evaluate2(d, Config(), Stage2Config()) for d in designs]
     pareto, finals = rank(rows, 1)
     assert len(finals) == 1
+
+
+def test_blunt_bow_adds_wave_resistance():
+    from hullopt.stage2 import prepare, resistance
+    cfg, c2 = Config(), Stage2Config()
+    base = dict(loa=1.22, beam=0.155, depth=0.197, spacing_inner=0.395, rear_thr_x_frac=0.17)
+    U = 1.3
+    r_narrow = resistance(prepare(Design(**base, bow_face_width=0.06), cfg, c2), U, cfg, c2)
+    r_wide = resistance(prepare(Design(**base, bow_face_width=0.08), cfg, c2), U, cfg, c2)
+    assert r_wide["R_wave"] > r_narrow["R_wave"]

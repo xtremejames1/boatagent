@@ -49,6 +49,7 @@ from .layout import (
     mount_mass,
     Pod,
     place_front,
+    pod_top_extent,
     place_rear,
     rear_strut,
     front_members,
@@ -118,7 +119,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
 
     fixed = list(bud.items)
     psi = math.radians(cfg.front_thr_angle_deg)
-    pod_half_h = cfg.thr_radius + cfg.pod_gap + d.pod_wall
+    pod_top = pod_top_extent(d, cfg)
 
     def mirror(t: Thruster, name: str) -> Thruster:
         c = t.centre.copy()
@@ -138,7 +139,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         bud = MassBudget(list(fixed))
 
         # ---- thrusters (front: in pods ahead of the bows; rear: between the hulls)
-        fz = z_wl - d.front_thr_cover - pod_half_h
+        fz = z_wl - d.front_thr_cover - pod_top
         rz = z_wl - d.rear_thr_cover - cfg.thr_radius
         # port heading: toe-in points the axis forward-inboard (toward -y)
         fp, pp = place_front(d, cfg, fz, -psi if cfg.front_thr_toe_in else psi)

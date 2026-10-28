@@ -29,6 +29,7 @@ class Design:
     entry_half_angle_deg: float = 12.0  # target half-angle of entry (plan view)
     transom_frac: float = 0.55       # transom half-beam / max half-beam
     xmax_frac: float = 0.50          # max beam and lowest keel, fraction of LOA from transom
+    bow_face_width: float = 0.06     # flat bow face the front mount plate bolts to (m)
 
     # --- layout ---
     spacing_inner: float = 12 * INCH  # gap between demihull inner faces (m)
@@ -69,6 +70,7 @@ BOUNDS: dict[str, tuple[float, float]] = {
     "entry_half_angle_deg": (6.0, 25.0),
     "transom_frac": (0.2, 0.9),
     "xmax_frac": (0.35, 0.65),
+    "bow_face_width": (0.06, 0.08),   # 40 mm M4 pattern + edge distance
     "spacing_inner": (10 * INCH, 0.50),
     "front_thr_gap": (0.01, 0.10),
     "rear_thr_x_frac": (0.0, 0.25),
@@ -113,7 +115,14 @@ class Config:
     thr_rev_force_kgf: float = 4.1   # reverse thrust at 16 V
     front_thr_angle_deg: float = 45.0  # axis angle from +x
     front_thr_toe_in: bool = True    # axis points forward-inboard (jets run aft-outboard)
-    pod_gap: float = 0.005           # gap between thruster and pod inner wall
+    pod_gap: float = 0.005           # gap between thruster/mount plate and pod inner wall
+    t200_base_offset: float = 0.052  # PLACEHOLDER: thruster axis to T200 mounting face (check BR 3D model)
+    t200_bolt_square: float = 0.019  # 4x M3 on a 19 mm square (+1 M6 centre)
+    mount_plate_t: float = 0.006     # front bracket plate the T200 bolts to
+    mount_plate_size: float = 0.034  # square
+    hull_bolt_pattern: tuple = (0.040, 0.060)  # 4x M4 into the hull: width (y) x height (z)
+    bow_plate_t: float = 0.006       # bracket back plate against the bow face
+    bow_plate_margin: float = 0.03   # member roots this far inside the bow face top/bottom
     pod_window_ratio: float = 1.0    # side window area per side / thruster disk area
     pod_window_max_frac: float = 0.7  # windows may use at most this share of the bay side
     pod_window_cd: float = 0.2       # PLACEHOLDER: drag of the open windows, on window area
@@ -134,7 +143,7 @@ class Config:
     member_cd: float = 1.0           # pressure drag of front members on thickness x height
 
     # --- printing ---
-    fil_density: float = 1270.0      # PETG (kg/m^3)
+    fil_density: float = 1240.0      # PLA (kg/m^3), prototype material
     wall_thickness: float = 0.0016   # 4 perimeters x 0.4 mm
     rib_vol_frac: float = 0.012      # ribs/infill as fraction of enclosed volume
     sealer_kg_per_m2: float = 0.12

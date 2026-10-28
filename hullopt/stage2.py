@@ -94,7 +94,8 @@ class Prepared:
 
     d: Design
     row1: dict
-    x: np.ndarray
+    x: np.ndarray            # stations (hull only)
+    x_w: np.ndarray          # stations for Michell, with the bow face closed
     depth_edges: np.ndarray
     F: np.ndarray
     spacing: float
@@ -128,6 +129,10 @@ def prepare(d: Design, cfg: Config, c2: Stage2Config) -> Prepared | None:
     dm = 0.5 * (de[1:] + de[:-1])
     F = offsets_grid(xs, z_wl[:, None] - dm[None, :], d)
     transom = 2.0 * float(np.sum(F[0] * np.diff(de)))
+    # close the flat bow face: offsets drop to zero just ahead of it, so Michell sees
+    # its blunt entry (the transom stays open; Holtrop's transom term covers it)
+    xs_m = np.append(xs, L + 1e-4)
+    F_m = np.vstack([F, np.zeros((1, F.shape[1]))])
 
     app = []
     pod = 0.0
@@ -165,7 +170,7 @@ def prepare(d: Design, cfg: Config, c2: Stage2Config) -> Prepared | None:
     yaw_torque = pair * (abs(rp.centre[1]) + tau_front)
 
     return Prepared(
-        d=d, row1=r1, x=xs, depth_edges=de, F=F, spacing=2 * hull_centre_y(d), t_local=t_loc,
+        d=d, row1=r1, x=xs, x_w=xs_m, depth_edges=de, F=F_m, spacing=2 * hull_centre_y(d), t_local=t_loc,
         s_hull=r1["wetted_hulls"], lwl=r1["lwl"],
         k_form=form_factor(c2, r1["slenderness"]), transom_area=transom,
         app_fric=app, pod_area_cd=pod, pods=det.pods, app_lat_cd=lat, skid_profile=(sk.xs, sk.heights),
@@ -177,7 +182,7 @@ def prepare(d: Design, cfg: Config, c2: Stage2Config) -> Prepared | None:
 def resistance(p: Prepared, U: float, cfg: Config, c2: Stage2Config, mono: bool = False) -> dict:
     rho, g, nu = cfg.rho, cfg.g, cfg.nu
     q = 0.5 * rho * U * U
-    rw = c2.wave_factor * michell(p.x, p.depth_edges, p.F, U, spacing=p.spacing, rho=rho, g=g,
+    rw = c2.wave_factor * michell(p.x_w, p.depth_edges, p.F, U, spacing=p.spacing, rho=rho, g=g,
                                   lam_max=c2.lam_max)
     rv = q * p.s_hull * (p.k_form * ittc57(U * p.lwl / nu) + cfg.roughness_dcf)
     ra = sum(q * a * (k * ittc57(U * lr / nu) + cfg.roughness_dcf) for a, lr, k in p.app_fric)
@@ -192,7 +197,7 @@ def resistance(p: Prepared, U: float, cfg: Config, c2: Stage2Config, mono: bool 
     out = {"U": U, "Fr": U / math.sqrt(g * p.lwl), "R_wave": rw, "R_visc": rv, "R_app": ra,
            "R_transom": rt_, "R_total": rw + rv + ra + rt_}
     if mono:
-        r1 = michell(p.x, p.depth_edges, p.F, U, spacing=None, rho=rho, g=g, lam_max=c2.lam_max)
+        r1 = michell(p.x_w, p.depth_edges, p.F, U, spacing=None, rho=rho, g=g, lam_max=c2.lam_max)
         out["interference"] = rw / (2 * c2.wave_factor * r1) if r1 > 0 else float("nan")
     return out
 

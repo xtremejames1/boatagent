@@ -88,6 +88,7 @@ class Pod:
     wall: float
     window_area: float   # open area per side
     bay_side_area: float  # side area of the thruster bay (per side)
+    bay_len: float = 0.0  # fore-aft length of the thruster bay (inside the walls)
 
     @property
     def length(self) -> float:
@@ -147,20 +148,29 @@ class Pod:
 
 
 def place_front(d: Design, cfg: Config, z: float, heading: float) -> tuple[Thruster, Pod]:
-    """Port front thruster and its pod: ahead of the port bow on the hull centreline,
-    `front_thr_gap` between the stem and the pod's tail."""
+    """Port front thruster (axis at height z) and its pod: ahead of the port bow on the
+    hull centreline, `front_thr_gap` between the bow face and the pod's tail."""
     R, l, g, w = cfg.thr_radius, cfg.thr_length, cfg.pod_gap, d.pod_wall
     sn, cs = abs(np.sin(heading)), abs(np.cos(heading))
     xe = 0.5 * l * cs + R * sn + g          # half x-extent of the bay
     half_w = 0.5 * l * sn + R * cs + g + w   # thruster at 45 deg sets the width
-    half_h = R + g + w
+    top = pod_top_extent(d, cfg)       # above the axis
+    bot = R + g + w                    # below the axis
+    half_h = 0.5 * (top + bot)
     x0 = d.loa + d.front_thr_gap
     xt = x0 + d.pod_tail_len + w + xe
     x1 = xt + xe + w + d.pod_nose_len
     yc = hull_centre_y(d)
     win = cfg.pod_window_ratio * np.pi * R * R
-    pod = Pod("front_port", x0, x1, yc, z, half_w, half_h, d.pod_nose_len, w, win, 2 * xe * 2 * (R + g))
+    zc = z + 0.5 * (top - bot)          # section centre (the mount plate sits above the thruster)
+    pod = Pod("front_port", x0, x1, yc, zc, half_w, half_h, d.pod_nose_len, w, win,
+              2 * xe * 2 * (R + g), 2 * xe)
     return Thruster("front_port", np.array([xt, yc, z]), heading, R, l), pod
+
+
+def pod_top_extent(d: Design, cfg: Config) -> float:
+    """Thruster axis to the pod's outer top: T200 base, mount plate, gap, wall."""
+    return cfg.t200_base_offset + cfg.mount_plate_t + cfg.pod_gap + d.pod_wall
 
 
 def place_rear(d: Design, x: float, z: float, radius: float, length: float, clearance: float) -> Thruster:
@@ -319,17 +329,28 @@ def rear_strut(d: Design, cfg: Config, t: Thruster) -> Strut:
                  cfg.rear_strut_chord, cfg.rear_strut_tc, aligned=True)
 
 
+def bow_face(d: Design) -> tuple[float, float]:
+    """Bottom and top z of the flat bow face (keel at the bow to the deck)."""
+    return float(keel_z(np.array([1.0]), d)[0]), d.depth
+
+
+def mount_plate_centre(cfg: Config, t: Thruster) -> np.ndarray:
+    """Centre of the plate the T200 base bolts to (on top of the thruster)."""
+    return t.centre + np.array([0.0, 0.0, cfg.t200_base_offset + cfg.mount_plate_t / 2])
+
+
 def front_members(d: Design, cfg: Config, t: Thruster, pod: Pod) -> list[Strut]:
-    """Two diagonal members from the bow stem to the pod (a triangle bracket):
-    upper from the stem top (deck) down-forward to the pod top above the thruster,
-    lower from low on the stem (just above the keel) to the pod's tail."""
-    L, e = d.loa, cfg.stem_embed
-    z_keel = float(keel_z(np.array([1.0]), d)[0])
-    upper = Strut(t.name + "_upper", np.array([L - e, pod.y, d.depth - cfg.stem_attach_margin]),
-                  np.array([t.centre[0], pod.y, pod.top_z]),
+    """Front bracket: a back plate bolted to the flat bow face, and two members
+    from it to the T200 mount plate (a triangle). Upper: from near the top of the
+    bow face down-forward; lower: from near the bottom, roughly level."""
+    zb, zt = bow_face(d)
+    m = cfg.bow_plate_margin
+    x0 = d.loa + cfg.bow_plate_t
+    pc = mount_plate_centre(cfg, t)
+    half = cfg.mount_plate_size / 2
+    upper = Strut(t.name + "_upper", np.array([x0, pod.y, zt - m]), pc + np.array([half, 0, 0]),
                   cfg.front_strut_chord, cfg.front_strut_tc, aligned=False)
-    lower = Strut(t.name + "_lower", np.array([L - e, pod.y, z_keel + cfg.stem_attach_margin]),
-                  np.array([pod.x0 + pod.wall, pod.y, pod.z]),
+    lower = Strut(t.name + "_lower", np.array([x0, pod.y, zb + m]), pc - np.array([half, 0, 0]),
                   cfg.front_strut_chord, cfg.front_strut_tc, aligned=False)
     return [upper, lower]
 

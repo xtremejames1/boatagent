@@ -32,7 +32,7 @@ def _to_world(m: Mesh, R: np.ndarray, t) -> Mesh:
 
 def _bay_len(pod: Pod) -> float:
     """Fore-aft length of the thruster bay (inside the walls)."""
-    return pod.bay_side_area / (2 * (pod.half_h - pod.wall))
+    return pod.bay_len
 
 
 def pod_profile(pod: Pod, x: np.ndarray) -> np.ndarray:
