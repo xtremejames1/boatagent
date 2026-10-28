@@ -135,6 +135,9 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
   head-on; side hits reported as a capacity.
 - 2 ft test boat: `python -m hullopt.testhull` -> results/test_hull_2ft (finalist 1 hull
   scaled to 610 mm, 12 in between inner faces, hull only, 3 print pieces per hull).
+- 2 ft test boat for 8 kg payload: results/test_hull_2ft_8kg (2x beam = 123 mm, 140 mm
+  deep, fuller ends; 90 mm draft / 50 mm freeboard at 9.15 kg). Smooth STEP via
+  `hullopt/cadhull.py` (B-spline loft) for editing in Onshape.
 - Workflow: user reviews parts (STL links / renders) and gives feedback; iterate
   the parametric parts, then feed slicer masses back into the optimizer.
 
