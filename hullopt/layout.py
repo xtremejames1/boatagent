@@ -73,7 +73,7 @@ class Pod:
 
     Section: ellipse with half-width `half_w` and half-height `half_h` (outer).
     From aft to fore: tail fairing, the thruster bay (thruster at 45 deg inside,
-    side windows let it draw and discharge water sideways), then a crushable nose.
+    side windows let it draw and discharge water sideways), then a hollow nose that takes the load.
     The pod is flooded: only its printed material gives buoyancy.
     """
 

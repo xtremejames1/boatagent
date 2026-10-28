@@ -46,7 +46,7 @@ class Design:
 
     # --- front pod (faired, impact-absorbing, around the front thruster) ---
     pod_wall: float = 0.003          # pod shell thickness (m)
-    pod_nose_len: float = 0.05       # crushable nose ahead of the thruster bay (m)
+    pod_nose_len: float = 0.05       # load-taking nose ahead of the thruster bay (m)
     pod_tail_len: float = 0.01       # tail fairing aft of the thruster bay (m)
 
     def to_dict(self) -> dict:
@@ -117,7 +117,7 @@ class Config:
     front_thr_toe_in: bool = True    # axis points forward-inboard (jets run aft-outboard)
     pod_gap: float = 0.005           # gap between thruster/mount plate and pod inner wall
     t200_base_offset: float = 0.052  # PLACEHOLDER: thruster axis to T200 mounting face (check BR 3D model)
-    t200_bolt_square: float = 0.019  # 4x M3 on a 19 mm square (+1 M6 centre)
+    t200_bolt_square: float = 0.019  # 4x M3 on a 19 mm square (M6 centre hole unused)
     mount_plate_t: float = 0.006     # front bracket plate the T200 bolts to
     mount_plate_size: float = 0.040  # square (T200 pattern + two pod screw inserts)
     hull_bolt_pattern: tuple = (0.040, 0.060)  # 4x M4 into the hull: width (y) x height (z)
@@ -126,7 +126,7 @@ class Config:
     pod_window_ratio: float = 1.0    # side window area per side / thruster disk area
     pod_window_max_frac: float = 0.7  # windows may use at most this share of the bay side
     pod_window_cd: float = 0.2       # PLACEHOLDER: drag of the open windows, on window area
-    pod_crush_fill: float = 0.15     # infill of the crushable nose
+    pod_crush_fill: float = 0.0      # nose infill; 0 = hollow nose, printed as a plain shell
     pod_crush_len_min: float = 0.03  # PLACEHOLDER: minimum crush length ahead of the thruster
     pod_bed: tuple = (0.25, 0.25, 0.25)  # each pod must print in one piece on this bed
     impact_speed: float = 2.0        # head-on impact speed for the energy estimate

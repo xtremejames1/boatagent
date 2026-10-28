@@ -124,7 +124,7 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
   `_assembly.stl` for each finalist.
 - Printable parts: `python -m hullopt.parts` (CadQuery; STEP + STL; PrusaSlicer mass;
   strength report). Material PLA for the prototype. Hull interface: 4x M4 on a
-  40 x 60 mm pattern. T200: 4x M3 on 19 mm square + M6 (base offset from the axis
+  40 x 60 mm pattern. T200: 4x M3 on 19 mm square, M6 unused (base offset from the axis
   is a placeholder, `t200_base_offset`; check against the Blue Robotics model).
   Breakaway: pod on nylon M3 shear screws, ~420 N; bracket must hold 3x thrust
   and 1.25x breakaway head-on. Side hits at breakaway load are not yet survivable.

@@ -3,8 +3,8 @@
 Front (port side; starboard is the mirror image):
   front_bracket  back plate on the flat bow face (4x M4, 40 x 60 mm), two members
                  (12 x 24 mm min) down to a plate the T200 bolts to (4x M3 on a
-                 19 mm square + M6 centre), and two M3 heat-set holes for the pod.
-  front_pod      faired shell over the thruster and bracket: solid nose that takes
+                 19 mm square), and two M3 heat-set holes for the pod.
+  front_pod      faired shell over the thruster and bracket: hollow nose that takes
                  head-on hits, side windows for inflow, open tail and a top slot for
                  the bracket members, two bosses that screw onto the bracket plate.
                  Fixed with nylon M3 screws, which shear first: the pod breaks off
@@ -64,13 +64,13 @@ class FrontSpec:
 
     hull_bolt: float = 0.0045      # M4 clearance
     t200_m3: float = 0.0034        # M3 clearance
-    t200_m6: float = 0.0065        # M6 clearance
     insert_m3: float = 0.0040      # M3 heat-set insert hole
     insert_depth: float = 0.0055
     fuse_offset: float = 0.022     # pod screws, either side of the plate centre (body y)
     fuse_boss_d: float = 0.009
     fuse_screws: int = 2           # nylon M3, shear pins
     fuse_shear_each: float = 210.0  # N, nylon (PA66) M3 in single shear, approx.
+    side_factor: float = 0.5       # side hits matter less: check at this x breakaway
     slot_clear: float = 0.001      # each side of the members in the pod's top slot
     plate_corner_r: float = 0.003
     hold_factor: float = 3.0       # bracket must hold this x full thrust
@@ -155,14 +155,14 @@ def front_bracket(d: Design, cfg: Config, spec: FrontSpec, fp, pod, members):
           .edges("|Z").fillet(spec.plate_corner_r * MM)
           .rotate((0, 0, 0), (0, 0, 1), math.degrees(fp.heading)).translate(_v(pc)))
     body = body.union(tp)
-    # T200 holes (in the thruster's frame), M6 centre, pod fuse inserts (body y)
+    # T200 holes (4x M3 in the thruster's frame), pod fuse inserts (body y)
     c, s_ = math.cos(fp.heading), math.sin(fp.heading)
     q = cfg.t200_bolt_square / 2
     m3 = [(pc[0] + c * u - s_ * v, pc[1] + s_ * u + c * v) for u in (-q, q) for v in (-q, q)]
     cut = cq.Workplane("XY")
     zbot = (pc[2] - cfg.mount_plate_t / 2 - 0.05) * MM
     hgt = (cfg.mount_plate_t + 0.10) * MM
-    for (x, y), dia in [((x, y), spec.t200_m3) for x, y in m3] + [((pc[0], pc[1]), spec.t200_m6)]:
+    for (x, y), dia in [((x, y), spec.t200_m3) for x, y in m3]:   # 4x M3 only
         cut = cut.union(cq.Workplane("XY").circle(dia * MM / 2).extrude(hgt)
                         .translate((x * MM, y * MM, zbot)))
     ztop = (pc[2] + cfg.mount_plate_t / 2) * MM
@@ -179,9 +179,13 @@ def front_pod(d: Design, cfg: Config, spec: FrontSpec, pod, members, wall: float
     xs = pod.x0 + (pod.x1 - pod.x0) * 0.5 * (1 - np.cos(np.linspace(0, np.pi, n)))
     sc = pod_profile(pod, xs)
     outer = ellipse_loft(xs, pod.half_w, pod.half_h, pod.y, pod.z, sc)
-    # cavity: from just behind the tail to the start of the solid nose (open tail)
+    # cavity: hollow all the way into the nose (a plain shell, printed normally);
+    # stops where the nose gets too small for a wall on each side. Open tail.
     nose0 = pod.x1 - pod.nose_len
-    xi = np.linspace(pod.x0 - 0.002, nose0, n)
+    xq = np.linspace(nose0, pod.x1, 200)
+    ok = pod_profile(pod, xq) * pod.half_h >= wall + 0.003
+    x_stop = float(xq[ok][-1]) if ok.any() else nose0
+    xi = np.linspace(pod.x0 - 0.002, x_stop, n)
     si = np.maximum(pod_profile(pod, np.clip(xi, pod.x0, None)), 0.3)
     inner = cq.Workplane("XY")
     wires = [cq.Wire.makeEllipse((pod.half_w * s - wall) * MM, (pod.half_h * s - wall) * MM,
@@ -282,7 +286,8 @@ def front_strength(d: Design, cfg: Config, spec: FrontSpec, fp, pod, members, ps
         (f"reverse thrust x{spec.hold_factor:g} ({rev:.0f} N)", -rev * fp.axis, fp.centre),
         (f"head-on impact at breakaway x{spec.impact_factor:g} ({imp:.0f} N)", np.array([-imp, 0, 0]),
          np.array([pod.x1, pod.y, pod.z])),
-        (f"side hit at breakaway x{spec.impact_factor:g} ({imp:.0f} N)", np.array([0, -imp, 0]),
+        (f"side hit, secondary, x{spec.side_factor:g} breakaway ({breakaway * spec.side_factor:.0f} N)",
+         np.array([0, -breakaway * spec.side_factor, 0]),
          np.array([pod.x1 - pod.nose_len / 2, pod.y + pod.half_w, pod.z])),
     ]:
         # move the load to the plate centre as force + moment
@@ -336,6 +341,11 @@ def build_front(design: Design, cfg: Config, out: str, ps: PrintSettings | None 
                                 "utilisation": round(m.utilisation, 3), "buckling": round(m.buckling, 3)}
                                for m in c.members]} for c in cases],
     }
+    side = cases[3]
+    side_load = breakaway * spec.side_factor
+    cap_member = side_load / max(max(m.utilisation for m in side.members), 1e-9)
+    cap_bolt = side_load * spec.insert_pullout / max(side.bolt_tension_max, 1e-9)
+    report["strength"]["side_capacity_N"] = round(min(cap_member, cap_bolt), 0)
     report["model_estimates_kg"] = {"pod": row["pod_mass_each"],
                                     "mounts_total_all_four": row["mass_mounts"]}
     with open(os.path.join(out, "front_report.json"), "w") as f:
@@ -363,6 +373,8 @@ def report_md(r: dict, ps: PrintSettings, spec: FrontSpec) -> str:
           f"Both must stay under 1.", "",
           f"Pod breakaway: {spec.fuse_screws} nylon M3 screws in shear ≈ {r['strength']['breakaway_N']:.0f} N. "
           f"Hull inserts: assumed {r['strength']['insert_pullout_N']:.0f} N pull-out each (test this).", "",
+          f"Side hits are secondary: the bracket holds about {r['strength'].get('side_capacity_N', 0):.0f} N "
+          "sideways at the pod nose before a member or hull insert reaches its limit.", "",
           "| load case | member | axial (N) | stress (MPa) | utilisation | buckling | max bolt tension (N) | max bolt shear (N) |",
           "|---|---|---|---|---|---|---|---|"]
     for c in r["strength"]["cases"]:

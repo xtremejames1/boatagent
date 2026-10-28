@@ -45,7 +45,7 @@ For each design (about 0.1 s each):
    - Front thrusters sit one ahead of each hull's bow, on the hull centreline,
      `front_thr_gap` clear of the stem. Each is angled 45° inside a faired pod
      aligned with the flow. The pod has an elliptical section, side windows so the
-     thruster can draw water sideways, and a solid nose that takes head-on hits
+     thruster can draw water sideways, and a hollow nose that takes head-on hits
      instead of the thruster. The thrusters toe in: the forward end of each points
      toward the centreline, so the jets run aft-outboard past the hulls. It
      covers the thruster mount and must print in one piece on a 250 mm bed.
@@ -191,8 +191,8 @@ writes STEP files (to open and edit in any CAD tool), STLs, and a report:
   40 × 60 mm pattern (y × z). Two members run from it to a 40 mm plate on top of
   the T200: an upright 24 × 12 mm upper member and a flat 40 × 12 mm lower plate
   that takes sideways loads. The T200 plate has 4 × M3 holes on a 19 mm square
-  plus the centre M6, and two M3 heat-set holes for the pod.
-- **front_pod:** a 4-wall shell over the thruster and bracket. It has a solid
+  (the M6 is not used), and two M3 heat-set holes for the pod.
+- **front_pod:** a 4-wall shell over the thruster and bracket. It has a hollow
   nose that takes head-on hits instead of the thruster, side windows for
   inflow, an open tail, and a top slot the members pass through. Two bosses
   carry nylon M3 screws into the bracket plate. Those screws shear at about
@@ -204,7 +204,7 @@ writes STEP files (to open and edit in any CAD tool), STLs, and a report:
   ignored). Load cases:
   - 3× forward and reverse thrust
   - a head-on hit at 1.25× the pod's breakaway load
-  - a side hit at the same load
+  - a side hit at half the breakaway load (secondary: reported as a sideways capacity, not pass/fail)
 
   It reports member stress, buckling and the force on each hull screw.
 - **front_assembly.stl:** the two parts plus a T200 stand-in, for viewing.
