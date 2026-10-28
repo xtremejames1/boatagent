@@ -8,6 +8,9 @@ from hullopt.params import Config, Design
 from hullopt.stage2 import Stage2Config, evaluate2, form_factor, main, rank
 
 G = 9.81
+# a design that passes every stage 1 check (narrow, deep hull keeps the skid pads short)
+FEASIBLE = dict(loa=1.22, beam=0.13, depth=0.21, spacing_inner=0.395, rear_thr_x_frac=0.17,
+                front_thr_cover=0.051, rear_thr_cover=0.051)
 
 
 def strut(L=1.0, B=0.1, T=0.06, nx=401, nz=8):
@@ -109,8 +112,7 @@ def test_form_factor_couser():
 
 
 def test_evaluate2_knee_like_design():
-    d = Design(loa=1.22, beam=0.155, depth=0.197, spacing_inner=0.395,
-               rear_thr_x_frac=0.17)
+    d = Design(**FEASIBLE)
     row = evaluate2(d, Config(), Stage2Config())
     assert row["stage2_ok"]
     # components positive and add up
@@ -127,10 +129,8 @@ def test_evaluate2_knee_like_design():
 
 def test_rank_and_cli(tmp_path):
     cands = tmp_path / "c.csv"
-    designs = [Design(loa=1.22, beam=0.155, depth=0.197, spacing_inner=0.395,
-                      rear_thr_x_frac=0.17),
-               Design(loa=1.18, beam=0.15, depth=0.20, spacing_inner=0.36,
-                      rear_thr_x_frac=0.17)]
+    designs = [Design(**FEASIBLE),
+               Design(**dict(FEASIBLE, loa=1.25, spacing_inner=0.36, skid_margin=0.011))]
     keys = list(designs[0].to_dict())
     cands.write_text(",".join(keys) + "\n" + "\n".join(",".join(str(getattr(d, k)) for k in keys)
                                                       for d in designs) + "\n")

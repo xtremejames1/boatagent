@@ -94,6 +94,8 @@ def foil_mesh(s: Strut, n: int = 24) -> Mesh:
     u = (s.p1 - s.p0) / s.length
     if s.aligned:
         b = np.array([1.0, 0.0, 0.0])                    # chord along the flow
+    elif s.flat:
+        b = np.array([0.0, 1.0, 0.0])                    # plate: chord across y
     else:
         b = np.cross([0.0, 1.0, 0.0], u)                 # chord upright, thickness across y
         b /= np.linalg.norm(b)

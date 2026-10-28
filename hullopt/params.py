@@ -119,7 +119,7 @@ class Config:
     t200_base_offset: float = 0.052  # PLACEHOLDER: thruster axis to T200 mounting face (check BR 3D model)
     t200_bolt_square: float = 0.019  # 4x M3 on a 19 mm square (+1 M6 centre)
     mount_plate_t: float = 0.006     # front bracket plate the T200 bolts to
-    mount_plate_size: float = 0.034  # square
+    mount_plate_size: float = 0.040  # square (T200 pattern + two pod screw inserts)
     hull_bolt_pattern: tuple = (0.040, 0.060)  # 4x M4 into the hull: width (y) x height (z)
     bow_plate_t: float = 0.006       # bracket back plate against the bow face
     bow_plate_margin: float = 0.03   # member roots this far inside the bow face top/bottom
@@ -136,8 +136,10 @@ class Config:
     strut_min_thickness: float = 0.012  # every mount member: at least 12 mm x 24 mm
     strut_min_chord: float = 0.024
     mount_fixed_kg: float = 0.06     # printed clamp/bracket per thruster mount
-    front_strut_chord: float = 0.048  # front bow members: upright depth (m)
-    front_strut_tc: float = 0.25     # -> 12 mm across the flow
+    front_upper_depth: float = 0.024  # front upper member, upright: depth (m) x thickness across y
+    front_upper_thick: float = 0.012
+    front_lower_width: float = 0.040  # front lower member, flat plate: width across y x thickness
+    front_lower_thick: float = 0.012
     stem_embed: float = 0.02         # members run this far into the stem
     stem_attach_margin: float = 0.015  # member ends this far below deck / above keel
     member_cd: float = 1.0           # pressure drag of front members on thickness x height

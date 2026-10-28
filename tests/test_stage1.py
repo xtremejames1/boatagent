@@ -265,10 +265,12 @@ def test_front_bow_members():
     for s in (up, lo):
         # from the back plate on the bow face to the T200 mount plate, in the hull's centre plane
         assert s.p0[0] == pytest.approx(d.loa + cfg.bow_plate_t)
-        assert s.p1[0] == pytest.approx(pc[0], abs=cfg.mount_plate_size / 2 + 1e-9)
-        assert s.p1[2] == pytest.approx(pc[2])
+        assert abs(s.p1[0] - pc[0]) <= cfg.mount_plate_size / 2 + 1e-9
+        h = s.thickness if s.flat else s.chord     # vertical size where it lands
+        assert s.p1[2] == pytest.approx(pc[2] + cfg.mount_plate_t / 2 + h / 2)
         assert s.p0[1] == pytest.approx(pod.y) and s.p1[1] == pytest.approx(pod.y)
         assert s.thickness >= 0.012 - 1e-12 and s.chord >= 0.024 and not s.aligned
+    assert lo.flat and not up.flat     # lower is a plate across y, upper is upright
     assert up.p0[2] == pytest.approx(zt - cfg.bow_plate_margin)
     assert lo.p0[2] == pytest.approx(zb + cfg.bow_plate_margin)
     # mount plate is inside the pod, under its top wall
@@ -276,3 +278,19 @@ def test_front_bow_members():
     # two front members per side, one rear strut per side
     assert sum(s.name.startswith("front") for s in det.struts) == 4
     assert sum(s.name.startswith("rear") for s in det.struts) == 2
+
+
+def test_pod_section_encloses_thruster_and_plate():
+    from hullopt.layout import pod_section
+    d, cfg = Design(), Config()
+    h = np.radians(cfg.front_thr_angle_deg)
+    dz, a, b = pod_section(d, cfg, h)
+    ai, bi = a - d.pod_wall, b - d.pod_wall
+    R, l, g = cfg.thr_radius, cfg.thr_length, cfg.pod_gap
+    u = np.array([np.cos(h), np.sin(h), 0]); n = np.array([-u[1], u[0], 0]); e = np.array([0, 0, 1.0])
+    rng = np.random.default_rng(0)
+    s = rng.uniform(-l / 2, l / 2, 4000)[:, None]
+    t = rng.uniform(0, 2 * np.pi, 4000)[:, None]
+    pts = s * u + R * (np.cos(t) * n + np.sin(t) * e)          # thruster surface
+    r = (pts[:, 1] / ai) ** 2 + ((pts[:, 2] - dz) / bi) ** 2
+    assert r.max() < 1.0

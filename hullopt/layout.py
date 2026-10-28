@@ -147,30 +147,55 @@ class Pod:
         return float(max(dd / b for dd, b in zip(dims, sorted(bed))))
 
 
+def pod_section(d: Design, cfg: Config, heading: float) -> tuple[float, float, float]:
+    """Pod cross-section around the 45 deg thruster and its mount plate.
+
+    Returns (dz, half_w, half_h): section centre height above the thruster axis and
+    the outer semi-axes. Points on the thruster (radius + gap) and the mount plate
+    (+ gap) are all made to fit inside the inner ellipse, then the wall is added.
+    """
+    R, l, g, w = cfg.thr_radius, cfg.thr_length, cfg.pod_gap, d.pod_wall
+    u = np.array([np.cos(heading), np.sin(heading), 0.0])
+    n = np.array([-u[1], u[0], 0.0])
+    e = np.array([0.0, 0.0, 1.0])
+    s = np.linspace(-l / 2, l / 2, 9)[:, None, None]
+    ang = np.linspace(0, 2 * np.pi, 48, endpoint=False)[None, :, None]
+    pts = (s * u + (R + g) * (np.cos(ang) * n + np.sin(ang) * e)).reshape(-1, 3)
+    # mount plate (rotated square on top of the thruster), plus the gap above it
+    h = cfg.mount_plate_size / 2
+    c, sn = np.cos(heading), np.sin(heading)
+    ztop = cfg.t200_base_offset + cfg.mount_plate_t + g
+    for a_ in (-h, h):
+        for b_ in (-h, h):
+            pts = np.vstack([pts, [[c * a_ - sn * b_, sn * a_ + c * b_, ztop]]])
+    y, z = pts[:, 1], pts[:, 2]
+    dz = 0.5 * (z.max() + z.min())
+    a0, b0 = np.abs(y).max(), 0.5 * (z.max() - z.min())
+    k = float(np.sqrt((y / a0) ** 2 + ((z - dz) / b0) ** 2).max())
+    return float(dz), k * a0 + w, k * b0 + w
+
+
 def place_front(d: Design, cfg: Config, z: float, heading: float) -> tuple[Thruster, Pod]:
     """Port front thruster (axis at height z) and its pod: ahead of the port bow on the
     hull centreline, `front_thr_gap` between the bow face and the pod's tail."""
     R, l, g, w = cfg.thr_radius, cfg.thr_length, cfg.pod_gap, d.pod_wall
     sn, cs = abs(np.sin(heading)), abs(np.cos(heading))
     xe = 0.5 * l * cs + R * sn + g          # half x-extent of the bay
-    half_w = 0.5 * l * sn + R * cs + g + w   # thruster at 45 deg sets the width
-    top = pod_top_extent(d, cfg)       # above the axis
-    bot = R + g + w                    # below the axis
-    half_h = 0.5 * (top + bot)
+    dz, half_w, half_h = pod_section(d, cfg, heading)
     x0 = d.loa + d.front_thr_gap
     xt = x0 + d.pod_tail_len + w + xe
     x1 = xt + xe + w + d.pod_nose_len
     yc = hull_centre_y(d)
     win = cfg.pod_window_ratio * np.pi * R * R
-    zc = z + 0.5 * (top - bot)          # section centre (the mount plate sits above the thruster)
-    pod = Pod("front_port", x0, x1, yc, zc, half_w, half_h, d.pod_nose_len, w, win,
+    pod = Pod("front_port", x0, x1, yc, z + dz, half_w, half_h, d.pod_nose_len, w, win,
               2 * xe * 2 * (R + g), 2 * xe)
     return Thruster("front_port", np.array([xt, yc, z]), heading, R, l), pod
 
 
 def pod_top_extent(d: Design, cfg: Config) -> float:
-    """Thruster axis to the pod's outer top: T200 base, mount plate, gap, wall."""
-    return cfg.t200_base_offset + cfg.mount_plate_t + cfg.pod_gap + d.pod_wall
+    """Thruster axis to the pod's outer top."""
+    dz, _, half_h = pod_section(d, cfg, np.radians(cfg.front_thr_angle_deg))
+    return dz + half_h
 
 
 def place_rear(d: Design, x: float, z: float, radius: float, length: float, clearance: float) -> Thruster:
@@ -223,8 +248,10 @@ class Strut:
     `chord` x `tc * chord` thick.
 
     aligned=True: chord along +x (a foil facing the flow; rear struts).
-    aligned=False: chord in the member's vertical plane, thickness across y
-    (front bow members: 12 mm faces the flow, 24+ mm upright).
+    aligned=False, flat=False: "upright", chord in the member's vertical plane,
+        thickness across y (front upper member).
+    aligned=False, flat=True: chord across y, thickness in the vertical plane
+        (front lower member: a plate that takes sideways loads).
     """
 
     name: str
@@ -233,6 +260,7 @@ class Strut:
     chord: float
     tc: float
     aligned: bool = True
+    flat: bool = False
 
     # convenience views
     @property
@@ -290,11 +318,17 @@ class Strut:
         d = self.p1 - self.p0
         if self.aligned:
             return self.chord * self.submerged_height(z_wl)
-        return self.chord * self._sub(z_wl)[0] * float(np.hypot(d[0], d[2]))
+        w = self.thickness if self.flat else self.chord
+        return w * self._sub(z_wl)[0] * float(np.hypot(d[0], d[2]))
 
     def frontal_area(self, z_wl: float) -> float:
-        """Submerged area facing the flow for a non-aligned member (thickness x height)."""
-        return 0.0 if self.aligned else self.thickness * self.submerged_height(z_wl)
+        """Submerged area facing the flow for a non-aligned member."""
+        if self.aligned:
+            return 0.0
+        f = self._sub(z_wl)[0]
+        if self.flat:   # plate: its width across y, over its height plus thickness
+            return self.chord * (self.submerged_height(z_wl) + f * self.thickness)
+        return self.thickness * self.submerged_height(z_wl)
 
     def mass(self, cfg: Config) -> float:
         # hollow printed section: perimeter ~2.04 c
@@ -347,11 +381,16 @@ def front_members(d: Design, cfg: Config, t: Thruster, pod: Pod) -> list[Strut]:
     m = cfg.bow_plate_margin
     x0 = d.loa + cfg.bow_plate_t
     pc = mount_plate_centre(cfg, t)
-    half = cfg.mount_plate_size / 2
-    upper = Strut(t.name + "_upper", np.array([x0, pod.y, zt - m]), pc + np.array([half, 0, 0]),
-                  cfg.front_strut_chord, cfg.front_strut_tc, aligned=False)
-    lower = Strut(t.name + "_lower", np.array([x0, pod.y, zb + m]), pc - np.array([half, 0, 0]),
-                  cfg.front_strut_chord, cfg.front_strut_tc, aligned=False)
+    a = cfg.mount_plate_size
+    # both land on top of the T200 plate (their full depth above it, clear of the thruster)
+    uh, ut = cfg.front_upper_depth, cfg.front_upper_thick
+    lw, lt = cfg.front_lower_width, cfg.front_lower_thick
+    upper = Strut(t.name + "_upper", np.array([x0, pod.y, zt - m]),
+                  pc + np.array([0.25 * a, 0, cfg.mount_plate_t / 2 + uh / 2]),
+                  uh, ut / uh, aligned=False)
+    lower = Strut(t.name + "_lower", np.array([x0, pod.y, zb + m]),
+                  pc + np.array([-0.5 * a, 0, cfg.mount_plate_t / 2 + lt / 2]),
+                  lw, lt / lw, aligned=False, flat=True)
     return [upper, lower]
 
 

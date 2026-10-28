@@ -2,3 +2,5 @@ numpy>=1.26
 optuna>=3.0   # NSGA-II; without it stage 1 falls back to Latin hypercube sampling
 pytest        # tests only
 matplotlib    # optional: stage 2 resistance plot
+cadquery      # optional: printable parts (python -m hullopt.parts)
+# PrusaSlicer (system package, e.g. apt install prusa-slicer): slicer mass for the parts
