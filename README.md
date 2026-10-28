@@ -223,6 +223,15 @@ oriented as printed (`*_print.stl`). It also writes a report.
 - **Slicer mass:** PrusaSlicer, headless, with PLA, 4 walls, 10 % gyroid and
   0.2 mm layers.
 
+## Test hull variant (2 ft)
+
+`python -m hullopt.testhull --loa 0.6096 --spacing 0.3048` scales a design's hull
+(finalist 1 by default) to a new length. Every length scales and the angles stay
+the same. The gap between the hulls' inner faces is set separately. It writes
+STEP/STL for the hull and the catamaran, print pieces that fit the bed, slicer
+masses (10 % infill and hollow), and a draft-against-load table. The output is in
+`results/test_hull_2ft/`; see its README.
+
 ## Coordinates and units
 
 SI throughout. Body frame: x forward from the transom, y to port, z up, z = 0
@@ -273,5 +282,6 @@ hullopt/export.py        viewing STLs: front pod and full assembly
 hullopt/parts.py         printable CAD parts (CadQuery), slicer mass, report
 hullopt/strength.py      sections, material, simple strength checks
 hullopt/frame.py         3D frame solver used for the front mount
+hullopt/testhull.py      scaled test-hull variant (e.g. 2 ft at a 12 in gap)
 tests/                   analytic box checks, mesh checks, end-to-end checks
 ```

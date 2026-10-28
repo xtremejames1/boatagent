@@ -133,6 +133,8 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
   a 19 mm square (base offset from the axis is a placeholder, `t200_base_offset`).
   Fairing breakaway ~420 N (2 nylon M3); frame holds 3x thrust and 1.25x breakaway
   head-on; side hits reported as a capacity.
+- 2 ft test boat: `python -m hullopt.testhull` -> results/test_hull_2ft (finalist 1 hull
+  scaled to 610 mm, 12 in between inner faces, hull only, 3 print pieces per hull).
 - Workflow: user reviews parts (STL links / renders) and gives feedback; iterate
   the parametric parts, then feed slicer masses back into the optimizer.
 

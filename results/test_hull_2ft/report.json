@@ -1,0 +1,163 @@
+{
+  "scale": 0.5010561962141323,
+  "design": {
+    "loa": 0.6095999999999999,
+    "beam": 0.06134531221488865,
+    "depth": 0.11210881862193103,
+    "deadrise_deg": 5.00475,
+    "bilge_frac": 0.895386,
+    "rocker_fwd": 0.0387935745132045,
+    "rocker_aft": 0.01724399930956823,
+    "entry_half_angle_deg": 21.0333,
+    "transom_frac": 0.55728,
+    "xmax_frac": 0.392647,
+    "spacing_inner": 0.30479999999999996,
+    "front_thr_gap": -0.0191879,
+    "rear_thr_x_frac": 0.245857,
+    "front_thr_cover": 0.0511355,
+    "rear_thr_cover": 0.0857984,
+    "skid_margin": 0.0114781,
+    "skid_aft_x_frac": 0.298643,
+    "skid_fwd_x_frac": 0.658633,
+    "skid_pad_len": 0.0606077,
+    "pod_wall": 0.00202794,
+    "pod_nose_len": 0.00502989
+  },
+  "pieces": [
+    {
+      "name": "demihull_piece1",
+      "x_mm": [
+        0.0,
+        203.2
+      ],
+      "size_mm": [
+        203.2,
+        60.7,
+        111.7
+      ],
+      "overhang_mm2": 0.0,
+      "worst_deg": 8.5,
+      "slicer": {
+        "g": 249.11,
+        "cm3": 200.9,
+        "time": "14h 48m 57s",
+        "note": ""
+      },
+      "slicer_hollow": {
+        "g": 128.08,
+        "cm3": 103.29,
+        "time": "8h 9m 16s",
+        "note": ""
+      }
+    },
+    {
+      "name": "demihull_piece2",
+      "x_mm": [
+        203.2,
+        406.4
+      ],
+      "size_mm": [
+        203.2,
+        61.3,
+        112.1
+      ],
+      "overhang_mm2": 0.0,
+      "worst_deg": 1.3,
+      "slicer": {
+        "g": 293.36,
+        "cm3": 236.58,
+        "time": "17h 18m 35s",
+        "note": ""
+      },
+      "slicer_hollow": {
+        "g": 141.72,
+        "cm3": 114.29,
+        "time": "9h 2m 10s",
+        "note": ""
+      }
+    },
+    {
+      "name": "demihull_piece3",
+      "x_mm": [
+        406.4,
+        609.6
+      ],
+      "size_mm": [
+        202.8,
+        59.8,
+        104.2
+      ],
+      "overhang_mm2": 0.0,
+      "worst_deg": 5.9,
+      "slicer": {
+        "g": 192.64,
+        "cm3": 155.35,
+        "time": "11h 23m 4s",
+        "note": ""
+      },
+      "slicer_hollow": {
+        "g": 105.08,
+        "cm3": 84.75,
+        "time": "6h 29m 45s",
+        "note": ""
+      }
+    }
+  ],
+  "froude_mass_kg": 3.23,
+  "hydrostatics": [
+    {
+      "mass_kg": 1.616,
+      "draft_mm": 38.7,
+      "freeboard_mm": 73.4,
+      "lwl_mm": 609,
+      "KB_mm": 24.1,
+      "BM_T_mm": 1299,
+      "GM_T_mm_if_KG_at_deck": 1211,
+      "wetted_m2": 0.1089
+    },
+    {
+      "mass_kg": 2.425,
+      "draft_mm": 51.7,
+      "freeboard_mm": 60.4,
+      "lwl_mm": 610,
+      "KB_mm": 31.1,
+      "BM_T_mm": 869,
+      "GM_T_mm_if_KG_at_deck": 788,
+      "wetted_m2": 0.1416
+    },
+    {
+      "mass_kg": 3.233,
+      "draft_mm": 64.6,
+      "freeboard_mm": 47.5,
+      "lwl_mm": 610,
+      "KB_mm": 37.9,
+      "BM_T_mm": 652,
+      "GM_T_mm_if_KG_at_deck": 578,
+      "wetted_m2": 0.1743
+    },
+    {
+      "mass_kg": 4.041,
+      "draft_mm": 77.6,
+      "freeboard_mm": 34.5,
+      "lwl_mm": 610,
+      "KB_mm": 44.5,
+      "BM_T_mm": 521,
+      "GM_T_mm_if_KG_at_deck": 454,
+      "wetted_m2": 0.207
+    },
+    {
+      "mass_kg": 4.849,
+      "draft_mm": 90.5,
+      "freeboard_mm": 21.6,
+      "lwl_mm": 610,
+      "KB_mm": 51.1,
+      "BM_T_mm": 435,
+      "GM_T_mm_if_KG_at_deck": 374,
+      "wetted_m2": 0.2397
+    },
+    {
+      "mass_kg": 6.466,
+      "draft_mm": null
+    }
+  ]
+}
