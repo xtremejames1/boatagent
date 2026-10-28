@@ -557,12 +557,14 @@ def front_strength(d: Design, cfg: Config, spec: FrontSpec, fp, pod, m: dict, ps
 
 
 def size_members(d: Design, cfg: Config, spec: FrontSpec, ps: PrintSettings) -> tuple[Config, list]:
-    """Smallest upper strut and rail (>= 12 x 24 mm) that pass the primary cases."""
+    """Smallest upper strut, forefoot and rail (>= 12 x 24 mm) that pass the primary cases."""
     best = None
     tried = []
-    for ut, uh, lt, lw in itertools.product([0.012, 0.016], [0.024, 0.032, 0.040], [0.012, 0.016],
-                                            [0.024, 0.032, 0.040]):
-        c = replace(cfg, front_upper_thick=ut, front_upper_depth=uh, front_lower_thick=lt, front_lower_width=lw)
+    for ut, uh, ft, lw in itertools.product([0.012, 0.016, 0.020, 0.024], [0.024, 0.032, 0.040, 0.048],
+                                            [0.012, 0.016, 0.020], [0.024, 0.040]):
+        lt = 0.012
+        c = replace(cfg, front_upper_thick=ut, front_upper_depth=uh, front_lower_thick=lt,
+                    front_lower_width=lw, forefoot_thick=ft)
         try:
             _, _, fp, pod, m = front_geometry(d, c)
         except ValueError:
@@ -571,9 +573,9 @@ def size_members(d: Design, cfg: Config, spec: FrontSpec, ps: PrintSettings) -> 
         worst = max(max(x["utilisation"] for x in k["members"]) for k in cases if k["primary"])
         buck = max(max(x["buckling"] for x in k["members"]) for k in cases if k["primary"])
         screws = max(k["screw_shear_max_N"] for k in cases if k["primary"])
-        area = ut * uh + lt * lw
+        area = ut * uh + lt * lw + 0.5 * ft * c.forefoot_chord
         ok = worst <= 1.0 and buck <= 0.5 and screws <= spec.insert_shear
-        tried.append((ut, uh, lt, lw, worst, buck, screws, ok))
+        tried.append((ut, uh, ft, lw, worst, buck, screws, ok))
         if ok and (best is None or area < best[0]):
             best = (area, c)
     return (best[1] if best else cfg), tried
@@ -643,7 +645,9 @@ def build_front(design: Design, cfg: Config, out: str, ps: PrintSettings | None 
     parts = {"front_frame": frame_part, "front_fairing": fairing}
     report = {"design": design.to_dict(),
               "sizes_mm": {"upper": [cfg.front_upper_thick * MM, cfg.front_upper_depth * MM],
-                           "rail": [cfg.front_lower_width * MM, cfg.front_lower_thick * MM]},
+                           "rail": [cfg.front_lower_width * MM, cfg.front_lower_thick * MM],
+                           "forefoot": cfg.forefoot_thick * MM},
+              "sized_ok": (not size) or any(t[-1] for t in tried),
               "parts": {}}
     for name, shp in parts.items():
         cq.exporters.export(shp, os.path.join(out, f"{name}.step"))
@@ -692,7 +696,8 @@ def report_md(r: dict, ps: PrintSettings, spec: FrontSpec, cfg: Config) -> str:
          f"{ps.layer} mm layers, {ps.bed[0]} x {ps.bed[1]} x {ps.bed[2]} mm bed, nose-up (boat +x up), "
          f"no supports, overhang limit {cfg.max_overhang_deg:g}° from vertical.", "",
          f"Sized members: upper strut {sz['upper'][0]:g} x {sz['upper'][1]:g} mm (thick x deep); "
-         f"rail {sz['rail'][0]:g} x {sz['rail'][1]:g} mm (wide x thick).", "",
+         f"rail {sz['rail'][0]:g} x {sz['rail'][1]:g} mm (wide x thick); forefoot {sz['forefoot']:g} mm thick."
+         + ("" if r.get("sized_ok", True) else " NO SIZE IN THE SEARCH PASSED: these are the defaults."), "",
          "## Parts", "",
          "| part | size x,y,z (mm) | fits bed nose-up | overhang > limit (mm²) | slicer mass (g) | print time |",
          "|---|---|---|---|---|---|"]

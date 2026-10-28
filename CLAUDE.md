@@ -8,16 +8,21 @@ pipeline for a small holonomic autonomous catamaran (RoboBoat-scale).
 - **Configuration:** catamaran, holonomic.
 - **Thrusters:** 4 × Blue Robotics T200 (assume for now), all on 3D-printed mounts.
   - Front pair: one in front of each hull's bow, angled ~45° toe-in (forward end
-    toward the centreline, jets aft-outboard), inside a faired pod
-    that goes in front (aligned with the flow). The pod must survive a head-on hit,
-    or absorb it and break off; it has side openings so the thruster can draw
-    water from the side; it fits over the thruster mount and thruster and attaches
-    at the same hull interface point as the mount; the mount is two diagonal
-    members off the bow stem (upper: stem top to pod top; lower: low on the stem
-    to the pod tail), each at least 12 x 24 mm; it
-    need not crush, just take the load instead of the thruster; min 4 walls and
-    10 % infill; it prints in one piece on a
-    standard 250 x 250 mm bed.
+    toward the centreline; the forward end is the inlet, jets aft-outboard).
+  - Front mount = one printed frame per side, merged with the bow: a cap that
+    slides over a spigot on the blunt-cut hull (M4 into heat-set inserts in the
+    hull; the cap carries the knife edge), a forefoot fin, an upper strut
+    (cap -> T200 plate -> fairing lug) and a level rail under the thruster.
+    Members >= 12 x 24 mm. Impacts must go into the struts, not the thruster.
+    Thruster attaches with its 4 M3 only (M6 unused), cable exits the top and is
+    routed by the mount, and it must come off without removing the fairing.
+  - Separate nose fairing/bumper ahead of the thruster, its aft edge at the inlet,
+    open where the inlet needs free space, takes head-on hits and breaks off
+    (nylon M3); hollow, printed normally. Side hits matter less.
+  - Printing: PLA prototype, min 4 walls and 10 % infill, no supports, 35° max
+    overhang, every part fits a 250 x 250 x 250 mm bed.
+  - Keep a free cone at the inlet and the outlet (defaults 45° x 0.5 D inlet,
+    15° x 3 D jet; refine with CFD).
   - Rear pair: between the hulls, no pod. Only the front pair has pods. Each hangs
     from one diagonal strut running outboard-up (45°) straight into its hull's side
     (no crossbeam); strut section at least 12 mm thick and 24 mm wide.
@@ -63,7 +68,7 @@ pipeline for a small holonomic autonomous catamaran (RoboBoat-scale).
 | Demihull | length, beam, draft, section shape (bilge radius/deadrise), rocker, bow entry angle, transom width |
 | Layout | hull spacing (inner-face, ≥10 in), fore-aft thruster positions |
 | Skid | two trapezoid pads per hull (fore/aft): depth below lowest thruster (small margin, ~1–2 cm), flat length, fore-aft positions. |
-| Front pod | depth (cover), wall, nose length, tail length. Bow members fixed at 48 x 12 mm (min 24 x 12). Window size and shape tested as discrete cases at stage 3. |
+| Front pod | depth (cover), wall, fairing straight length (`pod_nose_len`), bow gap (may be negative: cap tip tucks into the bay). Frame member sizes picked by the strength check (min 12 x 24 mm). |
 
 Hard constraints: skid bottom below lowest thruster, displacement ≥ mass, GM_T ≥ X,
 freeboard ≥ Y, LOA ≤ 1.52 m, overall width limit, thrusters submerged enough to
@@ -103,10 +108,10 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
   ITTC-57 with Couser form factor, appendage and transom drag, sway crossflow,
   yaw-rate proxy. Output `results/stage2/finalists.csv` (8 designs, STLs in
   `results/stage2/designs/`).
-- Findings: skid height binds in stage 1 (`skid_max_height` = 0.12 m placeholder).
-  Best weighted R_T 15.5 N (hull 4.7, appendages 10.9: pod windows, bare rear
-  thrusters, bow members — all placeholder Cd). With pods ahead of the bows,
-  hulls top out near 1.28 m (slenderness ~5.5). No impact-strength model yet: pod wall goes to the minimum.
+- Findings (current run): best weighted R_T 16.7 N (hull 4.8, appendages 11.8; all
+  appendage Cd are placeholders), 1.22 m hull. Skid height binds (the frame rail under
+  the front thruster is the lowest point). Front parts for finalist 1 in results/parts:
+  frame 168 g, fairing 89 g (slicer), all checks clean except small ledges.
 - Mount layout (front ahead of bows, rear between hulls) is set; mount details will
   still change. Keep thruster/pod/mount geometry parametric (`hullopt/layout.py`).
 
@@ -122,12 +127,12 @@ Optimizer: Optuna or pymoo (NSGA-II for multi-objective).
   that limit is the only way higher; check ventilation in CFD first.
 - Viewing STLs: `python -m hullopt.export`; stage 2 writes `_pod.stl` and
   `_assembly.stl` for each finalist.
-- Printable parts: `python -m hullopt.parts` (CadQuery; STEP + STL; PrusaSlicer mass;
-  strength report). Material PLA for the prototype. Hull interface: 4x M4 on a
-  40 x 60 mm pattern. T200: 4x M3 on 19 mm square, M6 unused (base offset from the axis
-  is a placeholder, `t200_base_offset`; check against the Blue Robotics model).
-  Breakaway: pod on nylon M3 shear screws, ~420 N; bracket must hold 3x thrust
-  and 1.25x breakaway head-on. Side hits at breakaway load are not yet survivable.
+- Printable parts: `python -m hullopt.parts` (CadQuery; STEP + STL + print-oriented STL;
+  PrusaSlicer mass; checks; frame strength via `hullopt/frame.py`). Hull interface: bow
+  cap with 4x M4 sideways (staggered, 2 per side) into heat-set inserts. T200: 4x M3 on
+  a 19 mm square (base offset from the axis is a placeholder, `t200_base_offset`).
+  Fairing breakaway ~420 N (2 nylon M3); frame holds 3x thrust and 1.25x breakaway
+  head-on; side hits reported as a capacity.
 - Workflow: user reviews parts (STL links / renders) and gives feedback; iterate
   the parametric parts, then feed slicer masses back into the optimizer.
 

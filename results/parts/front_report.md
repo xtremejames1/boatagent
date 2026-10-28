@@ -1,31 +1,48 @@
-# Front pod and bracket
+# Front frame and nose fairing
 
-Print settings: PLA, 4 walls (1.6 mm), 10 % gyroid, 0.2 mm layers, 250 x 250 x 250 mm bed.
+Print: PLA, 4 walls (1.6 mm), 10 % gyroid, 0.2 mm layers, 250 x 250 x 250 mm bed, nose-up (boat +x up), no supports, overhang limit 35° from vertical.
+
+Sized members: upper strut 12 x 32 mm (thick x deep); rail 24 x 12 mm (wide x thick); forefoot 20 mm thick.
 
 ## Parts
 
-| part | size (mm) | fits bed | slicer mass (g) | print time | CAD volume (cm³) |
+| part | size x,y,z (mm) | fits bed nose-up | overhang > limit (mm²) | slicer mass (g) | print time |
 |---|---|---|---|---|---|
-| front_bracket | 177.6 x 63.9 x 167.4 | yes | 112.32 | 8h 48m 34s | 182.1 |
-| front_pod | 205.3 x 186.7 x 140.6 | yes | 174.29 | 16h 7m 25s | 137.5 |
+| front_frame | 208.8 x 68.4 x 247.3 | yes | 368.2 | 168.0 | 12h 45m 13s |
+| front_fairing | 124.6 x 187.4 x 141.3 | yes | 0.0 | 89.04 | 6h 13m 41s |
 
-Optimizer's estimate: pod 146 g; all four mounts 324 g.
+Optimizer's estimate: pod 172 g; all four mounts 365 g.
+
+## Checks
+
+- frame overlaps thruster: 0.0 mm³
+- fairing overlaps thruster: 0.0 mm³
+- frame overlaps fairing: 0.0 mm³
+- frame inside inlet keep-out: 0.0 mm³
+- frame inside jet keep-out: 17.9 mm³
+- fairing inside jet keep-out: 0.0 mm³
+- thruster removal path blocked by: 0.0 mm³
+- M3 screws without tool access: 0
 
 ## Strength
 
-Allowable stress 25 MPa (printed PLA, across layers). Utilisation = combined stress / allowable; buckling = compression / Euler load. Both must stay under 1.
+Allowable 25 MPa (printed PLA across layers, walls only). Fairing breaks off at about 420 N (2 nylon M3). Cap screws: M4 into heat-set inserts, 1000 N each assumed in shear (test this). Side hits are secondary: the frame takes about 78 N sideways at the nose.
 
-Pod breakaway: 2 nylon M3 screws in shear ≈ 420 N. Hull inserts: assumed 800 N pull-out each (test this).
-
-Side hits are secondary: the bracket holds about 136 N sideways at the pod nose before a member or hull insert reaches its limit.
-
-| load case | member | axial (N) | stress (MPa) | utilisation | buckling | max bolt tension (N) | max bolt shear (N) |
-|---|---|---|---|---|---|---|---|
-| forward thrust x3 (155 N) | front_port_upper | -95.1 | 5.97 | 0.25 | 0.025 | 341.0 | 124.2 |
-|  | front_port_lower | 197.6 | 15.95 | 0.672 | 0.0 |  |  |
-| reverse thrust x3 (121 N) | front_port_upper | 74.3 | 4.66 | 0.195 | 0.0 | 223.7 | 97.0 |
-|  | front_port_lower | -154.3 | 12.46 | 0.525 | 0.01 |  |  |
-| head-on impact at breakaway x1.25 (525 N) | front_port_upper | 429.9 | 12.21 | 0.488 | 0.0 | 411.0 | 0.0 |
-|  | front_port_lower | -923.7 | 16.98 | 0.679 | 0.059 |  |  |
-| side hit, secondary, x0.5 breakaway (210 N) | front_port_upper | 0.0 | 1.83 | 0.102 | -0.0 | 641.8 | 233.0 |
-|  | front_port_lower | 0.0 | 37.48 | 1.542 | -0.0 |  |  |
+| load case | member | axial (N) | stress (MPa) | utilisation | buckling | max cap screw shear (N) |
+|---|---|---|---|---|---|---|
+| forward thrust x3 (155 N) | upper_a | 18.9 | 21.67 | 0.937 | 0.0 | 205.7 |
+|  | upper_b | -66.1 | 12.99 | 0.573 | 0.006 |  |
+|  | forefoot | -8.4 | 9.51 | 0.412 | 0.001 |  |
+|  | rail | 69.3 | 11.41 | 0.458 | 0.0 |  |
+| reverse thrust x3 (121 N) | upper_a | -14.7 | 16.92 | 0.731 | 0.002 | 160.7 |
+|  | upper_b | 51.7 | 10.15 | 0.448 | 0.0 |  |
+|  | forefoot | 6.6 | 7.43 | 0.322 | 0.0 |  |
+|  | rail | -54.1 | 8.91 | 0.357 | 0.028 |  |
+| head-on hit x1.25 breakaway (525 N) | upper_a | -201.6 | 21.87 | 0.879 | 0.03 | 964.3 |
+|  | upper_b | -233.6 | 14.06 | 0.562 | 0.02 |  |
+|  | forefoot | 7.4 | 24.59 | 0.986 | 0.0 |  |
+|  | rail | -287.9 | 11.2 | 0.449 | 0.147 |  |
+| side hit, secondary, x0.5 breakaway (210 N) | upper_a | 22.1 | 66.29 | 2.695 | 0.0 | 0.0 |
+|  | upper_b | 52.3 | 41.64 | 1.675 | 0.0 |  |
+|  | forefoot | -0.1 | 16.03 | 1.285 | 0.0 |  |
+|  | rail | -53.4 | 62.42 | 2.498 | 0.027 |  |

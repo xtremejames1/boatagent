@@ -1,164 +1,259 @@
 {
   "design": {
-    "loa": 1.20874,
-    "beam": 0.137792,
-    "depth": 0.200729,
-    "deadrise_deg": 24.419,
-    "bilge_frac": 0.865211,
-    "rocker_fwd": 0.0233089,
-    "rocker_aft": 0.02456,
-    "entry_half_angle_deg": 7.40837,
-    "transom_frac": 0.294356,
-    "xmax_frac": 0.454726,
-    "bow_face_width": 0.0638839,
-    "spacing_inner": 0.355631,
-    "front_thr_gap": 0.0570542,
-    "rear_thr_x_frac": 0.221022,
-    "front_thr_cover": 0.0506203,
-    "rear_thr_cover": 0.0610375,
-    "skid_margin": 0.0141537,
-    "skid_aft_x_frac": 0.440341,
-    "skid_fwd_x_frac": 0.603584,
-    "skid_pad_len": 0.0318727,
-    "pod_wall": 0.00170859,
-    "pod_nose_len": 0.0360525,
-    "pod_tail_len": 0.00536967
+    "loa": 1.21663,
+    "beam": 0.122432,
+    "depth": 0.223745,
+    "deadrise_deg": 5.00475,
+    "bilge_frac": 0.895386,
+    "rocker_fwd": 0.0774236,
+    "rocker_aft": 0.0344153,
+    "entry_half_angle_deg": 21.0333,
+    "transom_frac": 0.55728,
+    "xmax_frac": 0.392647,
+    "spacing_inner": 0.427417,
+    "front_thr_gap": -0.0191879,
+    "rear_thr_x_frac": 0.245857,
+    "front_thr_cover": 0.0511355,
+    "rear_thr_cover": 0.0857984,
+    "skid_margin": 0.0114781,
+    "skid_aft_x_frac": 0.298643,
+    "skid_fwd_x_frac": 0.658633,
+    "skid_pad_len": 0.0606077,
+    "pod_wall": 0.00202794,
+    "pod_nose_len": 0.00502989
   },
+  "sizes_mm": {
+    "upper": [
+      12.0,
+      32.0
+    ],
+    "rail": [
+      24.0,
+      12.0
+    ],
+    "forefoot": 20.0
+  },
+  "sized_ok": true,
   "parts": {
-    "front_bracket": {
+    "front_frame": {
       "bbox_mm": [
-        177.6,
-        63.9,
-        167.4
+        208.8,
+        68.4,
+        247.3
       ],
-      "fits_bed": true,
-      "volume_cm3": 182.1,
+      "fits_bed_nose_up": true,
+      "valid": true,
+      "volume_cm3": 306.6,
+      "overhang_mm2": 368.2,
+      "worst_deg": 90.0,
       "slicer": {
-        "g": 112.32,
-        "cm3": 90.58,
-        "time": "8h 48m 34s",
+        "g": 168.0,
+        "cm3": 135.48,
+        "time": "12h 45m 13s",
         "note": ""
       }
     },
-    "front_pod": {
+    "front_fairing": {
       "bbox_mm": [
-        205.3,
-        186.7,
-        140.6
+        124.6,
+        187.4,
+        141.3
       ],
-      "fits_bed": true,
-      "volume_cm3": 137.5,
+      "fits_bed_nose_up": true,
+      "valid": true,
+      "volume_cm3": 73.6,
+      "overhang_mm2": 0.0,
+      "worst_deg": 35.2,
       "slicer": {
-        "g": 174.29,
-        "cm3": 140.56,
-        "time": "16h 7m 25s",
+        "g": 89.04,
+        "cm3": 71.8,
+        "time": "6h 13m 41s",
         "note": ""
       }
     }
+  },
+  "checks": {
+    "frame_vs_thruster_mm3": 0.0,
+    "fairing_vs_thruster_mm3": 0.0,
+    "frame_vs_fairing_mm3": 0.0,
+    "frame_in_inlet_cone_mm3": 0.0,
+    "frame_in_outlet_cone_mm3": 17.9,
+    "fairing_in_outlet_cone_mm3": 0.0,
+    "removal_path_max_mm3": 0.0,
+    "m3_screws_blocked": 0
   },
   "strength": {
     "material": "PLA (printed)",
     "sigma_allow_MPa": 25.0,
     "breakaway_N": 420.0,
-    "insert_pullout_N": 800.0,
+    "insert_shear_N": 1000.0,
+    "side_capacity_N": 78,
     "cases": [
       {
         "case": "forward thrust x3 (155 N)",
-        "bolt_tension_max_N": 341.0,
-        "bolt_shear_max_N": 124.2,
+        "primary": true,
         "members": [
           {
-            "name": "front_port_upper",
-            "axial_N": -95.1,
-            "sigma_MPa": 5.97,
-            "tau_MPa": 1.05,
-            "utilisation": 0.25,
-            "buckling": 0.025
+            "name": "upper_a",
+            "axial_N": 18.9,
+            "sigma_MPa": 21.67,
+            "utilisation": 0.937,
+            "buckling": 0.0
           },
           {
-            "name": "front_port_lower",
-            "axial_N": 197.6,
-            "sigma_MPa": 15.95,
-            "tau_MPa": 3.07,
-            "utilisation": 0.672,
+            "name": "upper_b",
+            "axial_N": -66.1,
+            "sigma_MPa": 12.99,
+            "utilisation": 0.573,
+            "buckling": 0.006
+          },
+          {
+            "name": "forefoot",
+            "axial_N": -8.4,
+            "sigma_MPa": 9.51,
+            "utilisation": 0.412,
+            "buckling": 0.001
+          },
+          {
+            "name": "rail",
+            "axial_N": 69.3,
+            "sigma_MPa": 11.41,
+            "utilisation": 0.458,
             "buckling": 0.0
           }
+        ],
+        "screw_shear_max_N": 205.7,
+        "cap_moment_Nm": [
+          -15.4,
+          -15.4,
+          -11.8
         ]
       },
       {
         "case": "reverse thrust x3 (121 N)",
-        "bolt_tension_max_N": 223.7,
-        "bolt_shear_max_N": 97.0,
+        "primary": true,
         "members": [
           {
-            "name": "front_port_upper",
-            "axial_N": 74.3,
-            "sigma_MPa": 4.66,
-            "tau_MPa": 0.82,
-            "utilisation": 0.195,
+            "name": "upper_a",
+            "axial_N": -14.7,
+            "sigma_MPa": 16.92,
+            "utilisation": 0.731,
+            "buckling": 0.002
+          },
+          {
+            "name": "upper_b",
+            "axial_N": 51.7,
+            "sigma_MPa": 10.15,
+            "utilisation": 0.448,
             "buckling": 0.0
           },
           {
-            "name": "front_port_lower",
-            "axial_N": -154.3,
-            "sigma_MPa": 12.46,
-            "tau_MPa": 2.4,
-            "utilisation": 0.525,
-            "buckling": 0.01
+            "name": "forefoot",
+            "axial_N": 6.6,
+            "sigma_MPa": 7.43,
+            "utilisation": 0.322,
+            "buckling": 0.0
+          },
+          {
+            "name": "rail",
+            "axial_N": -54.1,
+            "sigma_MPa": 8.91,
+            "utilisation": 0.357,
+            "buckling": 0.028
           }
+        ],
+        "screw_shear_max_N": 160.7,
+        "cap_moment_Nm": [
+          12.0,
+          12.0,
+          9.2
         ]
       },
       {
-        "case": "head-on impact at breakaway x1.25 (525 N)",
-        "bolt_tension_max_N": 411.0,
-        "bolt_shear_max_N": 0.0,
+        "case": "head-on hit x1.25 breakaway (525 N)",
+        "primary": true,
         "members": [
           {
-            "name": "front_port_upper",
-            "axial_N": 429.9,
-            "sigma_MPa": 12.21,
-            "tau_MPa": 0.0,
-            "utilisation": 0.488,
+            "name": "upper_a",
+            "axial_N": -201.6,
+            "sigma_MPa": 21.87,
+            "utilisation": 0.879,
+            "buckling": 0.03
+          },
+          {
+            "name": "upper_b",
+            "axial_N": -233.6,
+            "sigma_MPa": 14.06,
+            "utilisation": 0.562,
+            "buckling": 0.02
+          },
+          {
+            "name": "forefoot",
+            "axial_N": 7.4,
+            "sigma_MPa": 24.59,
+            "utilisation": 0.986,
             "buckling": 0.0
           },
           {
-            "name": "front_port_lower",
-            "axial_N": -923.7,
-            "sigma_MPa": 16.98,
-            "tau_MPa": 0.0,
-            "utilisation": 0.679,
-            "buckling": 0.059
+            "name": "rail",
+            "axial_N": -287.9,
+            "sigma_MPa": 11.2,
+            "utilisation": 0.449,
+            "buckling": 0.147
           }
+        ],
+        "screw_shear_max_N": 964.3,
+        "cap_moment_Nm": [
+          0.0,
+          71.9,
+          -0.0
         ]
       },
       {
         "case": "side hit, secondary, x0.5 breakaway (210 N)",
-        "bolt_tension_max_N": 641.8,
-        "bolt_shear_max_N": 233.0,
+        "primary": false,
         "members": [
           {
-            "name": "front_port_upper",
-            "axial_N": 0.0,
-            "sigma_MPa": 1.83,
-            "tau_MPa": 1.04,
-            "utilisation": 0.102,
-            "buckling": -0.0
+            "name": "upper_a",
+            "axial_N": 22.1,
+            "sigma_MPa": 66.29,
+            "utilisation": 2.695,
+            "buckling": 0.0
           },
           {
-            "name": "front_port_lower",
-            "axial_N": 0.0,
-            "sigma_MPa": 37.48,
-            "tau_MPa": 5.22,
-            "utilisation": 1.542,
-            "buckling": -0.0
+            "name": "upper_b",
+            "axial_N": 52.3,
+            "sigma_MPa": 41.64,
+            "utilisation": 1.675,
+            "buckling": 0.0
+          },
+          {
+            "name": "forefoot",
+            "axial_N": -0.1,
+            "sigma_MPa": 16.03,
+            "utilisation": 1.285,
+            "buckling": 0.0
+          },
+          {
+            "name": "rail",
+            "axial_N": -53.4,
+            "sigma_MPa": 62.42,
+            "utilisation": 2.498,
+            "buckling": 0.027
           }
+        ],
+        "screw_shear_max_N": 0.0,
+        "cap_moment_Nm": [
+          -28.8,
+          0.0,
+          -65.2
         ]
       }
     ],
-    "side_capacity_N": 136.0
+    "sizing_tried": 96
   },
   "model_estimates_kg": {
-    "pod": 0.14635259458484423,
-    "mounts_total_all_four": 0.32368971785972506
+    "pod": 0.17246347257988848,
+    "mounts_total_all_four": 0.3649561481273853
   }
 }
