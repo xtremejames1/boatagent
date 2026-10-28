@@ -181,6 +181,8 @@ class Config:
     roughness_dcf: float = 4.0e-4    # printed + sealed surface allowance
     sway_cd: float = 0.9
 
+    stage1_wave: bool = True         # add a coarse Michell wave term to the stage 1 drag objective
+
     # --- mesh resolution ---
     n_stations: int = 61
 

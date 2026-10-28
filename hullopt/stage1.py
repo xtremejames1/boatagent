@@ -32,8 +32,11 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
+from .michell import michell
 from .geometry import (
     actual_entry_angle_deg,
+    keel_z,
+    offsets_grid,
     catamaran_mesh,
     demihull_mesh,
     hull_centre_y,
@@ -69,6 +72,21 @@ FAIL = 10.0
 
 def ittc57(re: float) -> float:
     return 0.075 / (math.log10(max(re, 1e3)) - 2.0) ** 2
+
+
+def wave_proxy(d: Design, pose: Pose, cfg: Config, nx: int = 61, nz: int = 12) -> list[float]:
+    """Michell wave resistance (catamaran, coarse grid) at each surge speed."""
+    L = d.loa
+    xs = np.linspace(0.0, L, nx)
+    z_wl = (pose.heave + math.sin(pose.trim) * (xs - L / 2)) / math.cos(pose.trim)
+    t_max = max(float(np.clip(z_wl - keel_z(xs / L, d), 0, None).max()), 1e-4)
+    de = np.linspace(0.0, t_max, nz + 1)
+    dm = 0.5 * (de[1:] + de[:-1])
+    F = offsets_grid(xs, z_wl[:, None] - dm[None, :], d)
+    xs = np.append(xs, L + 1e-4)                      # close the flat bow face
+    F = np.vstack([F, np.zeros((1, nz))])
+    s = 2 * hull_centre_y(d)
+    return [michell(xs, de, F, v, spacing=s, rho=cfg.rho, g=cfg.g) for v in cfg.surge_speeds]
 
 
 @dataclass
@@ -239,6 +257,9 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         r_f.append(r)
     w = np.asarray(cfg.surge_weights, float)
     drag_w = float(np.dot(w, r_f) / w.sum())
+    # coarse Michell wave resistance, so length and slenderness get credit here too
+    r_w = wave_proxy(d, pose, cfg) if cfg.stage1_wave else [0.0] * len(cfg.surge_speeds)
+    wave_w = float(np.dot(w, r_w) / w.sum())
     fr = [v / math.sqrt(g * lwl) for v in cfg.surge_speeds]
 
     a_lat = hy.lateral_area + 2 * float(np.trapezoid(skid.heights, skid.xs))
@@ -319,7 +340,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         "feasible": feasible,
         "fail_reason": "" if feasible else ",".join(k[2:] for k, v in c.items() if v > 0),
         "obj_mass": M,
-        "obj_drag": drag_w,
+        "obj_drag": drag_w + wave_w,
         "obj_slenderness": slender,
         "mass_total": M,
         **{f"mass_{k}": v for k, v in bud.by_name().items()},
@@ -340,6 +361,7 @@ def evaluate(d: Design, cfg: Config | None = None, detail: bool = False):
         **{f"fr_{v:g}": f for v, f in zip(cfg.surge_speeds, fr)},
         **{f"rf_{v:g}": r for v, r in zip(cfg.surge_speeds, r_f)},
         "drag_fric_weighted": drag_w,
+        "drag_wave_weighted": wave_w,
         "lateral_area": a_lat,
         "sway_drag": sway_drag,
         "f_sway": f_sway, "f_surge": f_surge,
